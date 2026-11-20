@@ -29,7 +29,7 @@ extends Node2D
 ## second tap on the same spot does it (locked on, a shot: one tap);
 ## LOCK: then tap (click) an enemy to lock on to it (the mouse is a reticle
 ## meanwhile; LOCK again stops picking); locked on, LOCK lets go.
-## holding WAIT keeps waiting.
+## holding WAIT (or Space) keeps waiting, a step every HOLD_T.
 ## Toggles above the bottom right: LOCK (Q), 2H (E), GUARD (F); lit when
 ## on. BLOCK, TWO HANDS and ONE HAND aren't in the menus: they're these.
 ## Dev flags (after --): --duel (straight in), --seed=N, --at=x,y (the hero
@@ -43,6 +43,7 @@ extends Node2D
 ## screen), --dohero=right:heavy_bolt (the hero starts it, before --steps).
 
 const STEP_T := 0.07  # s a step takes on screen
+const HOLD_T := 0.3  # s from one step to the next while WAIT is held
 const TOOLS := [["1", "move"], ["2", "roll"], ["3", "hand:left"], ["4", "hand:right"], ["5", "flask"]]
 const KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5]
 const TOGGLES := [["Q", "lock", "LOCK"], ["E", "two", "2H"], ["F", "guard", "GUARD"]]
@@ -69,6 +70,7 @@ var dragged := false  # that press has become a drag
 var touch := false  # taps: aim, then tap again to do it
 var aimed := false  # touch: a spot has been tapped
 var held := ""  # the button being held down
+var waited_at := 0.0  # clock when a held WAIT last waited
 var menu := ""  # the hand whose menu is open ("left", "right")
 var picking := false  # LOCK tapped: tap an enemy to lock on
 var slot := "right0"  # the gear screen's slot being filled
@@ -175,8 +177,8 @@ func _process(dt: float) -> void:
 		u = minf(u + dt / STEP_T, 1.0)
 		if u >= 1.0 and duel.result == "" and not duel.hero.idle():
 			_step()
-		elif held == "wait" and duel.result == "" and duel.hero.idle():
-			act("wait", duel.hero.pos)
+		elif held == "wait" and duel.result == "" and duel.hero.idle() and clock - waited_at >= HOLD_T:
+			_wait()
 	view.queue_redraw()
 	hud.queue_redraw()
 
@@ -235,6 +237,8 @@ func _to_title() -> void:
 func _unhandled_input(ev: InputEvent) -> void:
 	if ev is InputEventKey and ev.pressed:
 		_key(ev.keycode, ev.echo)
+	elif ev is InputEventKey and ev.keycode == KEY_SPACE and held == "wait":
+		held = ""
 	elif ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
 		if ev.pressed:
 			_press(get_global_mouse_position())
@@ -469,7 +473,7 @@ func _press(p: Vector2) -> void:
 		_to_title()
 	elif b == "wait":
 		held = "wait"
-		act("wait", duel.hero.pos)
+		_wait()
 	elif b == "flask":
 		act("flask", duel.hero.pos)
 	elif b != "":
@@ -536,8 +540,14 @@ func _key(k: int, echo: bool) -> void:
 		else:
 			tool = t
 			menu = ""
-	elif k == KEY_SPACE:
-		act("wait", duel.hero.pos)  # held: keeps waiting
+	elif k == KEY_SPACE and not echo:
+		held = "wait"  # until it's let go
+		_wait()
+
+
+func _wait() -> void:
+	if act("wait", duel.hero.pos):
+		waited_at = clock
 
 
 ## The hero does this, if free (once the last step has finished showing).

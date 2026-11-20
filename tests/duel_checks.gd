@@ -239,12 +239,13 @@ func _hero() -> void:
 	check(d.stamina == 50 + int(Acts.HERO["guard_back"]), "guarding, stamina comes back slower", str(d.stamina))
 	d.plan("roll", d.hero.pos + Vector2(-20, 0))
 	check(not d.guard, "a roll drops GUARD")
-	# Walking keeps it; anything else drops it.
+	# Walking and waiting keep it; anything else drops it.
 	for k in ["move", "wait", "flask", "left:swap"]:
 		d = _armed("kite shield", "pike")
 		d.toggle_guard()
 		d.plan(k, d.hero.pos + Vector2(-20, 0))
-		check(d.guard == (k == "move"), "%s %s GUARD" % [k, "keeps" if k == "move" else "drops"])
+		var keeps: bool = k in ["move", "wait"]
+		check(d.guard == keeps, "%s %s GUARD" % [k, "keeps" if keeps else "drops"])
 	d = _armed("crossbow", "longsword")
 	check(not d.toggle_guard() and d.wiggle.has("guard"), "nothing to block with: GUARD wiggles")
 	# LOCK: picked by where you tap; shots aim at it wherever you point,

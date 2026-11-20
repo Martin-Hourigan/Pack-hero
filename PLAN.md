@@ -166,7 +166,8 @@ DECIDED (Martin)
   standard spear attacks keep the shield up while attacking; if hit, fine,
   they keep attacking while getting hit. A one-handed PIKE added for it.
 - Everything drops it except certain attacks for certain weapons, and
-  walking ("easier that way than list everything that does").
+  walking ("easier that way than list everything that does"). Waiting
+  doesn't cancel it either. Holding WAIT goes through steps slowly.
 BUILT
 - Three toggles above the bottom right, lit when on: LOCK (Q), 2H (E),
   GUARD (F). BLOCK, TWO HANDS and ONE HAND left the menus.
@@ -183,8 +184,10 @@ BUILT
   1 step.
 - GUARD: the shield's (or the two-handed weapon's) block is up whatever
   the hero does, in front of where he faces (a faint arc shows it), until
-  anything but walking or a "keeps guard" attack (roll, attacks, WAIT,
-  FLASK, SWAP, 2H, TRANSFORM all drop it). Nothing to block with: GUARD
+  anything but walking, waiting or a "keeps guard" attack (roll, attacks,
+  FLASK, SWAP, 2H, TRANSFORM all drop it).
+- Holding WAIT (or Space) waits a step every 0.3 s (PLACEHOLDER) until let
+  go. Nothing to block with: GUARD
   wiggles.
 - PIKE (either hand): its LIGHT ("keeps guard") leaves GUARD on, and the
   shield blocks while it thrusts; its HEAVY drops GUARD.
