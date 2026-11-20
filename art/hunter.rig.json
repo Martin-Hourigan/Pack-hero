@@ -1,0 +1,152 @@
+{
+	"format": "puppet-rig",
+	"version": 1,
+	"sheet": "res://art/hunter.png",
+	"sheet_size": [
+		96,
+		9
+	],
+	"shape_res": 1,
+	"parts": {
+		"body": {
+			"rect": [
+				0,
+				0,
+				9,
+				9
+			],
+			"pivot": [
+				4.5,
+				4.5
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							4.5,
+							4.5
+						]
+					],
+					"rx": 4,
+					"ry": 4,
+					"color": "#6fb7a8"
+				}
+			],
+			"group": "Hunter"
+		},
+		"sword": {
+			"rect": [
+				10,
+				0,
+				20,
+				3
+			],
+			"pivot": [
+				0,
+				1.5
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							1.5
+						],
+						[
+							4,
+							1.5
+						]
+					],
+					"w": 1,
+					"color": "#6a655c"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							4,
+							0.5
+						],
+						[
+							4,
+							2.5
+						]
+					],
+					"w": 1,
+					"color": "#6a655c"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							4,
+							1.5
+						],
+						[
+							19,
+							1.5
+						]
+					],
+					"w": 1,
+					"color": "#e8e2d0"
+				}
+			],
+			"group": "Weapon"
+		}
+	},
+	"nodes": [
+		{
+			"name": "root",
+			"parent": null,
+			"part": "",
+			"pos": [
+				0.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 0
+		},
+		{
+			"name": "body",
+			"parent": "root",
+			"part": "body",
+			"pos": [
+				0.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 1
+		},
+		{
+			"name": "sword",
+			"parent": "root",
+			"part": "sword",
+			"pos": [
+				1.0,
+				3.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 3
+		},
+		{
+			"name": "sword_back",
+			"parent": "root",
+			"part": "sword",
+			"pos": [
+				-1.0,
+				4.0
+			],
+			"rot": -127.0,
+			"vis": true,
+			"z": 2
+		}
+	],
+	"clips": {}
+}

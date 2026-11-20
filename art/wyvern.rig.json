@@ -1,0 +1,948 @@
+{
+	"format": "puppet-rig",
+	"version": 1,
+	"sheet": "res://art/wyvern.png",
+	"sheet_size": [
+		96,
+		77
+	],
+	"shape_res": 1,
+	"parts": {
+		"body": {
+			"rect": [
+				0,
+				0,
+				32,
+				22
+			],
+			"pivot": [
+				16,
+				11
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							16,
+							11
+						]
+					],
+					"rx": 15,
+					"ry": 10,
+					"color": "#e8e2d0"
+				},
+				{
+					"type": "rect",
+					"pts": [
+						[
+							7,
+							11
+						],
+						[
+							8,
+							12
+						]
+					],
+					"color": "#000000",
+					"mode": "cut"
+				},
+				{
+					"type": "rect",
+					"pts": [
+						[
+							12,
+							11
+						],
+						[
+							13,
+							12
+						]
+					],
+					"color": "#000000",
+					"mode": "cut"
+				},
+				{
+					"type": "rect",
+					"pts": [
+						[
+							17,
+							11
+						],
+						[
+							18,
+							12
+						]
+					],
+					"color": "#000000",
+					"mode": "cut"
+				},
+				{
+					"type": "rect",
+					"pts": [
+						[
+							22,
+							11
+						],
+						[
+							23,
+							12
+						]
+					],
+					"color": "#000000",
+					"mode": "cut"
+				}
+			],
+			"group": "Body"
+		},
+		"eyes": {
+			"rect": [
+				33,
+				0,
+				3,
+				9
+			],
+			"pivot": [
+				1,
+				4.5
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "rect",
+					"pts": [
+						[
+							1,
+							0
+						],
+						[
+							2,
+							1
+						]
+					],
+					"color": "#000000"
+				},
+				{
+					"type": "rect",
+					"pts": [
+						[
+							1,
+							8
+						],
+						[
+							2,
+							9
+						]
+					],
+					"color": "#000000"
+				}
+			],
+			"group": "Head"
+		},
+		"eyes@rage": {
+			"rect": [
+				37,
+				0,
+				3,
+				9
+			],
+			"pivot": [
+				1,
+				4.5
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "rect",
+					"pts": [
+						[
+							1,
+							0
+						],
+						[
+							2,
+							1
+						]
+					],
+					"color": "#d9784a"
+				},
+				{
+					"type": "rect",
+					"pts": [
+						[
+							1,
+							8
+						],
+						[
+							2,
+							9
+						]
+					],
+					"color": "#d9784a"
+				}
+			],
+			"group": "Head"
+		},
+		"head": {
+			"rect": [
+				41,
+				0,
+				17,
+				15
+			],
+			"pivot": [
+				7,
+				7
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							7,
+							7
+						]
+					],
+					"rx": 7,
+					"ry": 7,
+					"color": "#e8e2d0"
+				},
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							12,
+							7
+						]
+					],
+					"rx": 4,
+					"ry": 4,
+					"color": "#e8e2d0"
+				}
+			],
+			"group": "Head"
+		},
+		"head@broken": {
+			"rect": [
+				59,
+				0,
+				17,
+				15
+			],
+			"pivot": [
+				7,
+				7
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							7,
+							7
+						]
+					],
+					"rx": 7,
+					"ry": 7,
+					"color": "#e8e2d0"
+				},
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							12,
+							7
+						]
+					],
+					"rx": 4,
+					"ry": 4,
+					"color": "#e8e2d0"
+				},
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							6,
+							1
+						]
+					],
+					"rx": 2,
+					"ry": 2,
+					"color": "#000000",
+					"mode": "cut"
+				}
+			],
+			"group": "Head"
+		},
+		"leg": {
+			"rect": [
+				77,
+				0,
+				6,
+				6
+			],
+			"pivot": [
+				3,
+				3
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							3,
+							3
+						]
+					],
+					"rx": 2.5,
+					"ry": 2.5,
+					"color": "#6a655c"
+				}
+			],
+			"group": "Legs"
+		},
+		"neck": {
+			"rect": [
+				0,
+				23,
+				14,
+				14
+			],
+			"pivot": [
+				7,
+				7
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							7,
+							7
+						]
+					],
+					"rx": 6,
+					"ry": 6,
+					"color": "#e8e2d0"
+				}
+			],
+			"group": "Body"
+		},
+		"tail1": {
+			"rect": [
+				15,
+				23,
+				18,
+				13
+			],
+			"pivot": [
+				12.0,
+				6.5
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							9.0,
+							6.5
+						]
+					],
+					"rx": 9.0,
+					"ry": 6.0,
+					"color": "#e8e2d0"
+				}
+			],
+			"group": "Tail"
+		},
+		"tail2": {
+			"rect": [
+				34,
+				23,
+				17,
+				12
+			],
+			"pivot": [
+				11.6,
+				6.0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							8.6,
+							6.0
+						]
+					],
+					"rx": 8.4,
+					"ry": 5.4,
+					"color": "#e8e2d0"
+				}
+			],
+			"group": "Tail"
+		},
+		"tail3": {
+			"rect": [
+				52,
+				23,
+				16,
+				11
+			],
+			"pivot": [
+				11.2,
+				5.5
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							8.2,
+							5.5
+						]
+					],
+					"rx": 7.8,
+					"ry": 4.8,
+					"color": "#e8e2d0"
+				}
+			],
+			"group": "Tail"
+		},
+		"tail4": {
+			"rect": [
+				69,
+				23,
+				15,
+				10
+			],
+			"pivot": [
+				10.8,
+				5.0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							7.800000000000001,
+							5.0
+						]
+					],
+					"rx": 7.2,
+					"ry": 4.2,
+					"color": "#e8e2d0"
+				}
+			],
+			"group": "Tail"
+		},
+		"tail5": {
+			"rect": [
+				0,
+				38,
+				14,
+				9
+			],
+			"pivot": [
+				10.4,
+				4.5
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							7.4,
+							4.5
+						]
+					],
+					"rx": 6.6,
+					"ry": 3.6,
+					"color": "#e8e2d0"
+				}
+			],
+			"group": "Tail"
+		},
+		"tail6": {
+			"rect": [
+				15,
+				38,
+				12,
+				7
+			],
+			"pivot": [
+				9.0,
+				3.5
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							6.0,
+							3.5
+						]
+					],
+					"rx": 6.0,
+					"ry": 3.0,
+					"color": "#e8e2d0"
+				}
+			],
+			"group": "Tail"
+		},
+		"tail_tip": {
+			"rect": [
+				28,
+				38,
+				8,
+				7
+			],
+			"pivot": [
+				7,
+				3.5
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "poly",
+					"pts": [
+						[
+							7,
+							0.5
+						],
+						[
+							0,
+							3.5
+						],
+						[
+							7,
+							6.5
+						]
+					],
+					"color": "#e8e2d0"
+				}
+			],
+			"group": "Tail"
+		},
+		"wing_l": {
+			"rect": [
+				37,
+				38,
+				19,
+				19
+			],
+			"pivot": [
+				13,
+				18
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "poly",
+					"pts": [
+						[
+							18,
+							18
+						],
+						[
+							9,
+							0
+						],
+						[
+							0,
+							12
+						],
+						[
+							7,
+							18
+						]
+					],
+					"color": "#6a655c"
+				}
+			],
+			"group": "Wings"
+		},
+		"wing_r": {
+			"rect": [
+				57,
+				38,
+				19,
+				19
+			],
+			"pivot": [
+				13,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "poly",
+					"pts": [
+						[
+							18,
+							0
+						],
+						[
+							9,
+							18
+						],
+						[
+							0,
+							6
+						],
+						[
+							7,
+							0
+						]
+					],
+					"color": "#6a655c"
+				}
+			],
+			"group": "Wings"
+		},
+		"wing_l@broken": {
+			"rect": [
+				0,
+				58,
+				19,
+				19
+			],
+			"pivot": [
+				13,
+				18
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "poly",
+					"pts": [
+						[
+							18,
+							18
+						],
+						[
+							9,
+							0
+						],
+						[
+							0,
+							12
+						],
+						[
+							7,
+							18
+						]
+					],
+					"color": "#6a655c"
+				},
+				{
+					"type": "poly",
+					"pts": [
+						[
+							2,
+							12
+						],
+						[
+							8,
+							9
+						],
+						[
+							6,
+							17
+						]
+					],
+					"color": "#000000",
+					"mode": "cut"
+				}
+			],
+			"group": "Wings"
+		},
+		"wing_r@broken": {
+			"rect": [
+				20,
+				58,
+				19,
+				19
+			],
+			"pivot": [
+				13,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "poly",
+					"pts": [
+						[
+							18,
+							0
+						],
+						[
+							9,
+							18
+						],
+						[
+							0,
+							6
+						],
+						[
+							7,
+							0
+						]
+					],
+					"color": "#6a655c"
+				},
+				{
+					"type": "poly",
+					"pts": [
+						[
+							2,
+							6
+						],
+						[
+							8,
+							9
+						],
+						[
+							6,
+							1
+						]
+					],
+					"color": "#000000",
+					"mode": "cut"
+				}
+			],
+			"group": "Wings"
+		}
+	},
+	"nodes": [
+		{
+			"name": "root",
+			"parent": null,
+			"part": "",
+			"pos": [
+				0.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 0
+		},
+		{
+			"name": "wing_l",
+			"parent": "root",
+			"part": "wing_l",
+			"pos": [
+				0.0,
+				-7.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 1
+		},
+		{
+			"name": "wing_r",
+			"parent": "root",
+			"part": "wing_r",
+			"pos": [
+				0.0,
+				7.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 1
+		},
+		{
+			"name": "leg_fl",
+			"parent": "root",
+			"part": "leg",
+			"pos": [
+				7.0,
+				-11.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 2
+		},
+		{
+			"name": "leg_fr",
+			"parent": "root",
+			"part": "leg",
+			"pos": [
+				7.0,
+				11.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 2
+		},
+		{
+			"name": "leg_bl",
+			"parent": "root",
+			"part": "leg",
+			"pos": [
+				-7.0,
+				-11.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 2
+		},
+		{
+			"name": "leg_br",
+			"parent": "root",
+			"part": "leg",
+			"pos": [
+				-7.0,
+				11.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 2
+		},
+		{
+			"name": "tail1",
+			"parent": "root",
+			"part": "tail1",
+			"pos": [
+				-13.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 9
+		},
+		{
+			"name": "tail2",
+			"parent": "tail1",
+			"part": "tail2",
+			"pos": [
+				-6.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 8
+		},
+		{
+			"name": "tail3",
+			"parent": "tail2",
+			"part": "tail3",
+			"pos": [
+				-6.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 7
+		},
+		{
+			"name": "tail4",
+			"parent": "tail3",
+			"part": "tail4",
+			"pos": [
+				-6.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 6
+		},
+		{
+			"name": "tail5",
+			"parent": "tail4",
+			"part": "tail5",
+			"pos": [
+				-6.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 5
+		},
+		{
+			"name": "tail6",
+			"parent": "tail5",
+			"part": "tail6",
+			"pos": [
+				-6.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 4
+		},
+		{
+			"name": "tail_tip",
+			"parent": "tail6",
+			"part": "tail_tip",
+			"pos": [
+				-6.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 3
+		},
+		{
+			"name": "body",
+			"parent": "root",
+			"part": "body",
+			"pos": [
+				0.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 10
+		},
+		{
+			"name": "neck",
+			"parent": "root",
+			"part": "neck",
+			"pos": [
+				12.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 11
+		},
+		{
+			"name": "head",
+			"parent": "root",
+			"part": "head",
+			"pos": [
+				20.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 12
+		},
+		{
+			"name": "eyes",
+			"parent": "head",
+			"part": "eyes",
+			"pos": [
+				2.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 13
+		}
+	],
+	"clips": {}
+}

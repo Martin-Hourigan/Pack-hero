@@ -1,0 +1,58 @@
+{
+	"format": "puppet-anim-spec",
+	"version": 1,
+	"project": "Tell",
+	"palette": [
+		"#000000",
+		"#e8e2d0",
+		"#6a655c",
+		"#2a2826",
+		"#d9784a",
+		"#5c3424",
+		"#6fb7a8",
+		"#d8c27a",
+		"#a89bd0",
+		"#8fb46a",
+		"#ffffff",
+		"#8e5c8e",
+		"#8a9a5b",
+		"#4e5a35"
+	],
+	"bg": "#000000",
+	"groups": [
+		"monster",
+		"hunters"
+	],
+	"group_labels": {
+		"monster": "Monster",
+		"hunters": "Hunters"
+	},
+	"monster": {
+		"raptor": {
+			"label": "Raptor (starter)",
+			"rig": "res://art/raptor.rig.json",
+			"sheet": "res://art/raptor.png",
+			"note": "The starter monster: no element or status. Name a part spikes* and its tail spin would poison, so don't. Top-down, facing RIGHT (+x); its left side is up. A part's pivot is its joint. HIT AREAS = the shapes: a part's SECTION is its hit zone (Head, Body, Legs, Tail; anything else counts as Body). Give a part a <name>@broken version and its zone can be broken (the game swaps it in): frill@broken = head broken (weaker side bites), leg@broken = legs broken (shorter jumps). The tail is cut off at tail3: everything from there down falls off. The game moves: legs step, tail1..tail6 + tail_tip lie along the swinging tail, it squashes, stretches and grows in the air when it jumps. eyes@rage shows while enraged. Black 'cut' holes are looks only (they don't change the hit area)."
+		},
+		"spiketail": {
+			"label": "Spiketail",
+			"rig": "res://art/spiketail.rig.json",
+			"sheet": "res://art/spiketail.png",
+			"note": "Top-down, facing RIGHT (+x); its left side is up. A part's pivot is its joint. HIT AREAS = the shapes: a part's SECTION is its hit zone (Head, Body, Legs, Tail; anything else counts as Body). Give a part a <name>@broken version and its zone can be broken (the game swaps it in): frill@broken = head broken (weaker side bites), leg@broken = legs broken (shorter jumps). The tail is cut off at tail3: everything from there down falls off. While any part named spikes* is still on, the tail spin poisons. The game moves: legs step, tail1..tail6 + tail_tip lie along the swinging tail, it squashes, stretches and grows in the air when it jumps. eyes@rage shows while enraged. Black 'cut' holes are looks only (they don't change the hit area)."
+		},
+		"thornwing": {
+			"label": "Thornwing",
+			"rig": "res://art/thornwing.rig.json",
+			"sheet": "res://art/thornwing.png",
+			"note": "The big winged one. Top-down, facing RIGHT (+x); its left side is up. A part's pivot is its joint. HIT AREAS = the shapes: a part's SECTION is its hit zone (Head, Body, Wings, Legs, Tail; anything else counts as Body). Give a part a <name>@broken version and its zone can be broken (the game swaps it in): crest@broken = head broken (weaker bites), wing_l@broken / wing_r@broken = wings broken (shorter charges). The tail is cut off at tail3: everything from there down falls off. While any part named spikes* is still on, the tail flip poisons. The game moves: legs step, wing_l / wing_r spread about their shoulders, tail1..tail6 + tail_tip lie along the swinging tail, it squashes, stretches and somersaults (squashed flat, then turned round) when it flips. eyes@rage shows while enraged. Black 'cut' holes are looks only (they don't change the hit area). Hunters can stand under every part but the Legs."
+		}
+	},
+	"hunters": {
+		"hunter": {
+			"label": "Hunter",
+			"rig": "res://art/hunter.rig.json",
+			"sheet": "res://art/hunter.png",
+			"note": "Top-down, facing RIGHT (+x). Teal (#6fb7a8) is repainted to each hunter's own colour. The body's size is the hunter's size in the game. The sword (a longsword) is one part on two nodes: 'sword' in the hand (its pivot is the hand; the game swings it about that, and the BLADE'S SHAPES ARE WHAT HITS) and 'sword_back' (on the back, shown while it's put away)."
+		}
+	}
+}
