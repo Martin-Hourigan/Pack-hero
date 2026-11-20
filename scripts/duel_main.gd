@@ -29,7 +29,8 @@ extends Node2D
 ## on. BLOCK, TWO HANDS and ONE HAND aren't in the menus: they're these.
 ## Dev flags (after --): --duel (straight in), --seed=N, --at=x,y (the hero
 ## there), --knight=sweep / backhand / overhead (he starts it now),
-## --foes=soldier,spearman,archer (them instead of the knight),
+## --foes=soldier,spearman,archer (them in the old arena instead of the
+## run), --room=N (start the run in room N, from 0),
 ## --steps=N (play N steps first), --tool=right:light (picked) with
 ## --mouse=x,y (aimed there), --touch, --blocking (GUARD on), --lock (LOCK on), --menu=right (that hand's menu open), --gear=left,right or
 ## left,left2,right,right2 (e.g. crossbow,staff; _ for a space; the slots
@@ -59,6 +60,7 @@ var held := ""  # the button being held down
 var menu := ""  # the hand whose menu is open ("left", "right")
 var picking := false  # LOCK tapped: tap an enemy to lock on
 var slot := "right0"  # the gear screen's slot being filled
+var memory := {}  # what the hero's seen of each room (kept when he dies)
 
 var update_state := "idle"  # idle, checking, latest, new, failed, downloading, ready, download_failed
 var update_tag := ""
@@ -115,19 +117,20 @@ func _ready() -> void:
 		menu = String(flags.get("menu", ""))
 
 
-## The enemies to fight: the knight, or --foes' in a column on the right.
-func room() -> Array:
+## The rooms to go through: Acts.ROOMS, or one of --foes' in a column on
+## the right of the old arena.
+func run_rooms() -> Array:
 	if not flags.has("foes"):
-		return Duel.KNIGHT_ROOM
+		return Acts.ROOMS
 	var out := []
 	var ks := String(flags["foes"]).split(",")
 	for i in ks.size():
 		out.append({"k": ks[i], "at": Vector2(280 + 30 * (i % 2), 40 + 110.0 * (i + 0.5) / ks.size()), "a": PI})
-	return out
+	return [{"area": Acts.ARENA, "start": Vector2(110, 92), "foes": out}]
 
 
 func begin() -> void:
-	duel = Duel.new(int(flags.get("seed", "0")), gear, room())
+	duel = Duel.new(int(flags.get("seed", "0")), gear, run_rooms(), int(flags.get("room", "0")), memory)
 	mode = "duel"
 	tool = "move"
 	u = 1.0

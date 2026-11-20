@@ -20,6 +20,7 @@ func run() -> int:
 	_bodies()
 	_foes()
 	_ranges()
+	_rooms()
 	_whole()
 	return fails
 
@@ -277,7 +278,7 @@ func _room(ks: Array, gear := {"left": ["kite shield", "staff"], "right": ["long
 	var room := []
 	for i in ks.size():
 		room.append({"k": ks[i], "at": Vector2(280, 40 + 40 * i), "a": PI})
-	return Duel.new(1, gear, room)
+	return Duel.new(1, gear, [{"area": Acts.ARENA, "start": Vector2(110, 92), "foes": room}])
 
 
 func _foes() -> void:
@@ -378,6 +379,65 @@ func _ranges() -> void:
 				break
 			far = Vector2(d.shots[0]["p"]).distance_to(start)
 		check(d.shots.is_empty() and far <= float(Acts.SHOTS[k]["range"]) + 0.01, "a %s goes its range, then it's gone" % k, str(far))
+
+
+## The run: doorways, pillars, sight.
+func _rooms() -> void:
+	var d := Duel.new(1, Acts.HANDS, Acts.ROOMS)
+	check(d.room_i == 0 and d.foes.size() == 2, "the run starts in room 1")
+	var r0: Dictionary = Acts.ROOMS[0]
+	d.hero.pos = Vector2(Rect2(r0["area"]).end.x - 10, (float(r0["door"][0]) + float(r0["door"][1])) / 2.0)
+	for f in d.foes:
+		f.pos = Vector2(40, 30)
+		_still_foe(f, 30)
+	d.plan("move", d.hero.pos + Vector2(20, 0))
+	d.plan("move", Vector2(Rect2(r0["area"]).end.x - 1, d.hero.pos.y))
+	for i in 6:
+		d.step()
+		if d.room_i == 1:
+			break
+	check(d.room_i == 1 and d.hero.pos == Vector2(Acts.ROOMS[1]["start"]), "into the doorway: the next room")
+	check(d.result == "", "not won yet")
+	# A pillar stops walking, shots and sight.
+	var pl: Rect2 = Acts.ROOMS[1]["pillars"][0]
+	d.hero.pos = Vector2(pl.position.x - 20, pl.get_center().y)
+	check(not d.can_see(Vector2(pl.end.x + 20, pl.get_center().y)), "a pillar hides what's behind it")
+	check(d.can_see(Vector2(pl.position.x - 20, pl.position.y - 30)), "and not what isn't")
+	d.hero.cur = {}
+	d.plan("move", Vector2(pl.end.x + 20, pl.get_center().y))
+	for i in 20:
+		for f in d.foes:
+			_still_foe(f, 1)
+		d.step()
+	check(d.hero.pos.x < pl.position.x, "walking into a pillar, stopped", str(d.hero.pos))
+	check(d.fog_at(int((pl.end.x + 20) / Acts.FOG), int(pl.get_center().y / Acts.FOG)) != 2, "behind it isn't seen now")
+	# Enemies wait until they see the hero.
+	var e: Unit = d.foes[0]
+	e.pos = Vector2(pl.end.x + 20, pl.get_center().y)
+	e.aware = false
+	e.cur = {}
+	var e_at := e.pos
+	for i in 3:
+		_still(d, 1)
+		d.step()
+	check(not e.aware and e.pos == e_at, "an enemy that hasn't seen you waits")
+	# What's been seen is remembered after dying.
+	var mem := d.memory
+	var seen_before := 0
+	for b in mem[1]:
+		seen_before += b
+	var d2 := Duel.new(1, Acts.HANDS, Acts.ROOMS, 1, mem)
+	var seen_after := 0
+	for b in d2.memory[1]:
+		seen_after += b
+	check(seen_after >= seen_before and seen_before > 0, "what you've seen is remembered after dying")
+	# The last room: all dead, won.
+	d = Duel.new(1, Acts.HANDS, Acts.ROOMS, Acts.ROOMS.size() - 1)
+	check(d.knight != null and d.door.is_empty(), "the knight's in the last room")
+	d.knight.hp = 0
+	_still(d, 1)
+	d.step()
+	check(d.result == "win", "the knight dead: won")
 
 
 ## Whole fights, the hero pressing light attacks: they end.

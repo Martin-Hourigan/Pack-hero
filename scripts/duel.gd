@@ -1,8 +1,12 @@
 class_name Duel
 extends RefCounted
-## The hero against the enemies of a room (Acts.FOES: the big knight,
-## soldiers, spearmen, archers), with no drawing or input so tests can
-## run it. Time goes in steps, everyone together. Everyone is a puppet
+## The hero through a run of rooms (Acts.ROOMS), against the enemies in
+## each (Acts.FOES: the big knight, soldiers, spearmen, archers), with no
+## drawing or input so tests can run it. Walking into a room's doorway
+## goes on to the next. Pillars block walking, shots and sight; the hero
+## sees what a straight line from him reaches (sight), and remembers what
+## he's seen (memory, kept when he dies); an enemy acts once it has seen
+## him (or been hit). Time goes in steps, everyone together. Everyone is a puppet
 ## (RigArt): an attack plays a clip, one frame a step, and the blade hits
 ## wherever the puppet's blade really is, swept from where it was at the
 ## step before (checked SWEEP_CHECKS times between, both bodies moving as
@@ -53,21 +57,62 @@ var shake_amt := 0.0
 var wiggle := {}  # HUD thing -> seconds left (a stamina bar that's too low)
 
 
-## The knight alone (the duel's room, until there are rooms).
-const KNIGHT_ROOM := [{"k": "knight", "at": Vector2(270, 92), "a": PI}]
+## The knight alone, in the old arena (the tests' room).
+const KNIGHT_ROOM := {"area": Acts.ARENA, "start": Vector2(110, 92),
+	"foes": [{"k": "knight", "at": Vector2(270, 92), "a": PI}]}
+
+var rooms: Array = []  # the run (Acts.ROOMS entries)
+var room_i := 0
+var area := Rect2()
+var pillars: Array = []  # Rect2s
+var door: Array = []  # [from y, to y] in the right wall; [] = none
+var memory := {}  # room_i -> PackedByteArray: the squares (Acts.FOG) seen
+var sight := PackedByteArray()  # the squares seen now
+var fog_size := Vector2i.ZERO  # squares across, down
 
 
-## room: the enemies, [{k (Acts.FOES), at, a}].
-func _init(seed_ := 0, gear_ := Acts.HANDS, room := KNIGHT_ROOM) -> void:
+## rooms: the run; it starts in room `first`. memory: what's been seen
+## before (a Dictionary, kept by the caller across deaths).
+func _init(seed_ := 0, gear_ := Acts.HANDS, rooms_: Array = [KNIGHT_ROOM], first := 0, memory_ := {}) -> void:
 	rng.seed = seed_ if seed_ != 0 else int(Time.get_ticks_usec())
 	gear = {"left": Array(gear_["left"]).duplicate(), "right": Array(gear_["right"]).duplicate()}
 	_settle("right")
-	hero = _add("hero", Vector2(110, 92), 0.0)
+	hero = _add("hero", Vector2.ZERO, 0.0)
 	hero.side = "hero"
-	for f in room:
-		add_foe(String(f["k"]), f["at"], float(f.get("a", PI)))
 	stamina = int(Acts.HERO["stamina"])
 	flasks = int(Acts.HERO["flasks"])
+	rooms = rooms_
+	memory = memory_
+	enter(first)
+
+
+## The hero comes into room i: its enemies, nothing else carried over but
+## him.
+func enter(i: int) -> void:
+	room_i = i
+	var r: Dictionary = rooms[i]
+	units = [hero]
+	foes = []
+	knight = null
+	shots = []
+	gone = []
+	target = null
+	area = r["area"]
+	pillars = r.get("pillars", [])
+	door = r.get("door", [])
+	hero.pos = r["start"]
+	hero.ang = 0.0
+	hero.cur = {}
+	hero.was = {}
+	hero.pose = rest(hero)
+	for f in r.get("foes", []):
+		add_foe(String(f["k"]), f["at"], float(f.get("a", PI)))
+	fog_size = Vector2i(ceili(area.size.x / Acts.FOG), ceili(area.size.y / Acts.FOG))
+	if not memory.has(i):
+		var m := PackedByteArray()
+		m.resize(fog_size.x * fog_size.y)
+		memory[i] = m
+	_look()
 
 
 func _add(k: String, at: Vector2, a: float) -> Unit:
@@ -81,6 +126,7 @@ func _add(k: String, at: Vector2, a: float) -> Unit:
 func add_foe(k: String, at: Vector2, a: float) -> Unit:
 	var u := _add(k, at, a)
 	u.side = "enemy"
+	u.aware = false
 	foes.append(u)
 	if k == "knight" and knight == null:
 		knight = u
@@ -214,7 +260,7 @@ func auto_aims(k: String) -> bool:
 ## The enemy whose body is at p, give or take `slack` px (null = none).
 func enemy_at(p: Vector2, slack := 4.0) -> Unit:
 	for u in units:
-		if u.side != "enemy" or not u.alive():
+		if u.side != "enemy" or not u.alive() or not can_see(u.pos):
 			continue
 		for c in u.body():
 			if p.distance_to(c[0]) <= float(c[1]) + slack:
@@ -376,7 +422,7 @@ func shape(k: String, at: Vector2) -> Dictionary:
 	var aim := (at - u.pos).angle() if at.distance_to(u.pos) > 0.5 else u.ang
 	match k:
 		"move":
-			if at.distance_to(u.pos) < 1.0 or not Acts.ARENA.has_point(at):
+			if at.distance_to(u.pos) < 1.0 or not area.has_point(at):
 				return {}
 			var speed := float(Acts.HERO["walk"])
 			var steps := []
@@ -572,8 +618,13 @@ func step() -> void:
 		u.calm += 1
 		if u.calm >= int(foe_data(u)["calm"]):
 			u.taken = 0
+		if not u.aware and los(u.pos, hero.pos):
+			u.aware = true
 		if u.idle():
-			_choose(u)
+			if u.aware:
+				_choose(u)
+			else:
+				u.cur = _act("wait", [{"ph": "wait"}])
 		if int(u.cur.get("b", 1)) == 0 and _threat(u.cur):
 			foe_starts = true
 	var walking := String(hero.cur.get("k", "")) == "move"
@@ -640,11 +691,14 @@ func step() -> void:
 	# A walk stops when an enemy starts an attack: you choose again.
 	if walking and foe_starts and String(hero.cur.get("k", "")) == "move":
 		hero.cur = {}
-	if target != null and not target.alive():
+	_look()
+	if target != null and (not target.alive() or not can_see(target.pos)):
 		target = null
 	if hero.hp <= 0:
 		result = "lose"
-	elif foes.all(func(f): return not f.alive()):
+	elif at_door():
+		enter(room_i + 1)
+	elif door.is_empty() and foes.all(func(f): return not f.alive()):
 		result = "win"
 
 
@@ -700,9 +754,106 @@ func _walk(u: Unit, to: Vector2) -> void:
 		u.pos = p
 
 
+## Whether u's body fits at p: in the room, clear of the pillars.
 func _in_arena(u: Unit, p: Vector2) -> bool:
 	var r := float(u.data()["body"][0][1])
-	return Acts.ARENA.grow(-r).has_point(p)
+	if not area.grow(-r).has_point(p):
+		return false
+	for pl in pillars:
+		if Rect2(pl).grow(r).has_point(p):
+			return false
+	return true
+
+
+## Whether a shot at p is still in the open (in the room, not in a pillar).
+func open_at(p: Vector2) -> bool:
+	if not area.has_point(p):
+		return false
+	for pl in pillars:
+		if Rect2(pl).has_point(p):
+			return false
+	return true
+
+
+## Whether the hero is in the doorway (and there's a room after).
+func at_door() -> bool:
+	if door.is_empty() or not hero.alive() or room_i + 1 >= rooms.size():
+		return false
+	return hero.pos.x >= area.end.x - _radius(hero) - 1.5 and hero.pos.y >= float(door[0]) and hero.pos.y <= float(door[1])
+
+
+# ---------------------------------------------------------------- sight
+
+## Whether a straight line from a to b is clear of the pillars.
+func los(a: Vector2, b: Vector2) -> bool:
+	for pl in pillars:
+		if _crosses(a, b, pl):
+			return false
+	return true
+
+
+## Whether segment a-b goes through rect r (Liang-Barsky).
+static func _crosses(a: Vector2, b: Vector2, r: Rect2) -> bool:
+	var d := b - a
+	var t0 := 0.0
+	var t1 := 1.0
+	for e in [[-d.x, a.x - r.position.x], [d.x, r.end.x - a.x], [-d.y, a.y - r.position.y], [d.y, r.end.y - a.y]]:
+		var p: float = e[0]
+		var q: float = e[1]
+		if absf(p) < 0.000001:
+			if q < 0.0:
+				return false
+		else:
+			var t := q / p
+			if p < 0.0:
+				t0 = maxf(t0, t)
+			else:
+				t1 = minf(t1, t)
+			if t0 > t1:
+				return false
+	return true
+
+
+## Whether the hero can see p now.
+func can_see(p: Vector2) -> bool:
+	return los(hero.pos, p)
+
+
+## The squares the hero sees now; they're remembered as seen.
+func _look() -> void:
+	var n := fog_size.x * fog_size.y
+	sight.resize(n)
+	var seen: PackedByteArray = memory[room_i]
+	if pillars.is_empty():
+		sight.fill(1)
+		seen.fill(1)
+		memory[room_i] = seen
+		return
+	var f := float(Acts.FOG)
+	for y in fog_size.y:
+		for x in fog_size.x:
+			var i := y * fog_size.x + x
+			var c := area.position + Vector2((x + 0.5) * f, (y + 0.5) * f)
+			var ok := los(hero.pos, c) and not _in_pillar(c)
+			sight[i] = 1 if ok else 0
+			if ok:
+				seen[i] = 1
+	memory[room_i] = seen
+
+
+func _in_pillar(p: Vector2) -> bool:
+	for pl in pillars:
+		if Rect2(pl).has_point(p):
+			return true
+	return false
+
+
+## Square (x, y): 2 seen now, 1 seen before, 0 never.
+func fog_at(x: int, y: int) -> int:
+	var i := y * fog_size.x + x
+	if sight[i] == 1:
+		return 2
+	return 1 if memory[room_i][i] == 1 else 0
 
 
 static func _radius(u: Unit) -> float:
@@ -719,7 +870,7 @@ func _keep_apart() -> void:
 	if over <= 0.0:
 		return
 	var way := v.normalized() if v.length() > 0.01 else Vector2.from_angle(knight.ang)
-	var box := Acts.ARENA.grow(-_radius(hero))
+	var box := area.grow(-_radius(hero))
 	var p := hero.pos + way * over
 	var q := p.clamp(box.position, box.end)
 	if q != p:
@@ -736,6 +887,7 @@ func _hurt(v: Unit, by: Unit, d: int) -> void:
 	_sparks(v.pos, 6, Pal.DANGER if v == hero else Pal.INK)
 	shake_amt = maxf(shake_amt, 2.0 if v == hero else 1.0)
 	if v != hero and v.alive():
+		v.aware = true
 		v.calm = 0
 		v.taken += d
 		if v.taken >= int(foe_data(v)["poise"]):
@@ -918,7 +1070,7 @@ func _fly() -> void:
 			if hit != null:
 				s["p"] = q
 				break
-			if not Acts.ARENA.has_point(q):
+			if not open_at(q):
 				s["p"] = q
 				s["left"] = 0.0
 				break

@@ -67,6 +67,29 @@ const BOW := {"shot": 12, "wind": 2, "reach": 96.0, "w": 5.0, "near": 32.0, "far
 ## The arena: where bodies can stand (px).
 const ARENA := Rect2(12, 12, 360, 158)
 
+## The run: rooms one after another, each its own space from 0,0 (px).
+## area: where bodies can stand. start: where the hero comes in (facing
+## right). door: the doorway in the right wall, [from y, to y]: walk into
+## it for the next room (none: the last room; all its enemies dead, won).
+## pillars: Rect2s that block walking, shots and sight. foes: {k
+## (Acts.FOES), at, a (facing; left if not said)}. All PLACEHOLDER.
+const ROOMS := [
+	{"area": Rect2(0, 0, 360, 200), "start": Vector2(24, 100), "door": [84.0, 116.0],
+		"foes": [{"k": "soldier", "at": Vector2(250, 70)}, {"k": "soldier", "at": Vector2(270, 140)}]},
+	{"area": Rect2(0, 0, 420, 260), "start": Vector2(24, 130), "door": [30.0, 62.0],
+		"pillars": [Rect2(180, 100, 40, 60)],
+		"foes": [{"k": "soldier", "at": Vector2(300, 80)}, {"k": "spearman", "at": Vector2(320, 200)},
+			{"k": "archer", "at": Vector2(390, 140)}]},
+	{"area": Rect2(0, 0, 460, 320), "start": Vector2(24, 46), "door": [230.0, 262.0],
+		"pillars": [Rect2(120, 140, 36, 36), Rect2(300, 60, 36, 80)],
+		"foes": [{"k": "soldier", "at": Vector2(200, 80)}, {"k": "soldier", "at": Vector2(240, 250)},
+			{"k": "spearman", "at": Vector2(380, 230)}, {"k": "archer", "at": Vector2(420, 40)}]},
+	{"area": Rect2(0, 0, 360, 200), "start": Vector2(24, 100),
+		"foes": [{"k": "knight", "at": Vector2(260, 100)}]},
+]
+## Line of sight is worked out in squares this many px across.
+const FOG := 4
+
 # ---------------------------------------------------------------- levels
 ## A won fight is a level. Every level you pick a stat; every third level,
 ## an aspect level too. What a stat point gives is a placeholder.
