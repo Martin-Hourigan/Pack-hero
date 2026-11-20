@@ -10,17 +10,19 @@ extends RefCounted
 ## Numbers: Acts.HERO, Acts.ITEMS, Acts.SHOTS, Acts.KNIGHT.
 ##
 ## The hero's tools: move, roll, flask, wait, and "hand:thing" for what the
-## item in that hand does (Acts.ITEMS), e.g. "right:light", "left:block",
+## item in that hand does (Acts.ITEMS), e.g. "right:light", "left:bolt",
 ## or SWAP, TWO HANDS, ONE HAND, TRANSFORM ("left:swap"; Acts.CHANGE).
+## Toggles: LOCK (he faces the knight; hand tools aim at him), GUARD (a
+## shield's or two-handed weapon's BLOCK, held up whatever he's doing, until
+## a roll; stamina comes back slower).
 ## Each hand has two slots and holds one; an item held in both hands (a
 ## two-handed one, or one taken in TWO HANDS) puts the other hand's away.
 ##
 ## An action: {k, label, steps, b, hit (it has landed)}. A step:
-## {ph: wind / act / rec / move / roll / drink / wait / hurt / block / reload / change, clip, frame,
+## {ph: wind / act / rec / move / roll / drink / wait / hurt / reload / change, clip, frame,
 ## live (the blade hits), safe (hits miss you), to (walk there), fwd (px
-## forward), track (turn toward the hero), dmg, heal, guard (degrees in
-## front where hits are stopped), cut (how much of a stopped hit still
-## hurts), shoot (Acts.SHOTS entry), unload (the slot it empties), reload
+## forward), track (turn toward the hero), dmg, heal, shoot (Acts.SHOTS
+## entry), unload (the slot it empties), reload
 ## (that slot is loaded), change ([hand, Acts.CHANGE entry]: done now),
 ## mirror (the clip is played in the left hand)}.
 
@@ -41,6 +43,8 @@ var loaded := {}  # slot ("left0") -> its crossbow is loaded (it is until shot)
 var shots: Array = []  # {k, p, from, ang, left, by}
 var gone: Array = []  # shots that ended this step (drawn for one more step)
 var calm := 0  # steps since the knight was last hit
+var lock := false  # LOCK: the hero faces the knight
+var guard := false  # GUARD: the hero's block is up
 
 # Effects (the view draws them; they don't change play).
 var numbers: Array = []  # {p, s, life, col}
@@ -171,6 +175,39 @@ func _change(h: String, what: String) -> void:
 			_settle(o)
 
 
+## The BLOCK the hero has: the hand's that has one (a shield, or a weapon
+## held in two hands), with "hand" added ({} = none).
+func guard_spec() -> Dictionary:
+	for h in hands():
+		var o := options(h)
+		if o.has("block"):
+			var g: Dictionary = o["block"].duplicate()
+			g["hand"] = h
+			return g
+	return {}
+
+
+## The 2H toggle's tool: take the right hand's item in two hands (else the
+## left's), or let go ("" = nothing it can do).
+func two_tool() -> String:
+	if grip != "":
+		return grip + ":one hand" if two_handed(grip) else ""
+	for h in ["right", "left"]:
+		if item(h).has("two"):
+			return h + ":two hands"
+	return ""
+
+
+## Turns GUARD on or off; false (it wiggles) if there's nothing to block with.
+func toggle_guard() -> bool:
+	if not guard and guard_spec().is_empty():
+		wiggle["guard"] = 0.4
+		return false
+	guard = not guard
+	hero.pose = rest(hero)
+	return true
+
+
 ## The slot hand h holds ("left0").
 func slot(h: String) -> String:
 	return h + str(up[h])
@@ -218,6 +255,9 @@ func hero_pose(k: String, f: float, mirror: bool, parts := {}) -> Dictionary:
 		var it := item(h)
 		var hold := String(it["key"]) + ("2_hold" if two_handed(h) else "_hold")
 		_over(out, RigArt.track_pose(path, hold, 0.0), h == "left" and int(it["hands"]) == 1)
+	var g := guard_spec() if guard else {}
+	if not g.is_empty():
+		_over(out, RigArt.track_pose(path, g["clip"], 1.0), g["hand"] == "left" and int(item(g["hand"])["hands"]) == 1)
 	if k != "":
 		_over(out, RigArt.track_pose(path, k, f), mirror)
 	for h in hands():
@@ -294,6 +334,8 @@ func _act(k: String, steps: Array) -> Dictionary:
 ## What the hero would do with tool k aimed at `at` ({} = can't).
 func shape(k: String, at: Vector2) -> Dictionary:
 	var u := hero
+	if lock and ":" in k:
+		at = knight.pos
 	var aim := (at - u.pos).angle() if at.distance_to(u.pos) > 0.5 else u.ang
 	match k:
 		"move":
@@ -322,8 +364,8 @@ func shape(k: String, at: Vector2) -> Dictionary:
 		"wait":
 			return _act(k, [{"ph": "wait"}])
 	var s := spec(k)
-	if s.is_empty():
-		return {}
+	if s.is_empty() or s.has("block"):
+		return {}  # (a block is GUARD's)
 	var h := k.split(":")[0]
 	var it := item(h)
 	var mirror := h == "left" and int(it["hands"]) == 1
@@ -334,9 +376,6 @@ func shape(k: String, at: Vector2) -> Dictionary:
 			steps.append({"ph": "change"})
 		steps[steps.size() - 1]["change"] = [h, s["change"]]
 		a = _act(k, steps)
-	elif s.has("block"):
-		a = _act(k, [{"ph": "block", "clip": s["clip"], "frame": 1, "face": aim, "guard": float(s["block"]),
-			"cut": float(s.get("cut", 0.0)), "mirror": mirror}])
 	elif s.has("reload"):
 		var steps := []
 		for i in range(1, int(s["reload"]) + 1):
@@ -386,6 +425,8 @@ func plan(k: String, at: Vector2) -> bool:
 			wiggle["flasks"] = 0.4
 		return false
 	stamina -= cost(k)
+	if k == "roll":
+		guard = false
 	if casts_left(k) > 0:
 		casts[item_key(h) + ":" + k.split(":")[1]] = casts_left(k) - 1
 	if k == "flask":
@@ -460,6 +501,8 @@ func step() -> void:
 		loaded[String(st_h["reload"])] = true
 	if st_h.has("change"):
 		_change(String(st_h["change"][0]), String(st_h["change"][1]))
+		if guard_spec().is_empty():
+			guard = false  # nothing left to block with
 		hero.pose = rest(hero)
 	# The blades.
 	for u in units:
@@ -474,7 +517,7 @@ func step() -> void:
 			u.cur["hit"] = true
 			if blocks(v, at):
 				_blocked(at)
-				var through := roundi(int(st["dmg"]) * float(current(v).get("cut", 0.0)))
+				var through := roundi(int(st["dmg"]) * float(guarding(v).get("cut", 0.0)))
 				if through > 0:
 					_chip(v, through)
 			else:
@@ -492,7 +535,8 @@ func step() -> void:
 	_fly()
 	_burn()
 	if resting:
-		stamina = mini(stamina + int(Acts.HERO["stamina_back"]), int(Acts.HERO["stamina"]))
+		var back := int(Acts.HERO["guard_back" if guard else "stamina_back"])
+		stamina = mini(stamina + back, int(Acts.HERO["stamina"]))
 	# A walk stops when the knight starts an attack: you choose again.
 	if walking and knight_starts and String(hero.cur.get("k", "")) == "move":
 		hero.cur = {}
@@ -531,6 +575,8 @@ func _do(u: Unit) -> void:
 		_walk(u, st["to"])
 	if float(st.get("fwd", 0.0)) > 0.0:
 		_walk(u, u.pos + Vector2.from_angle(u.ang) * float(st["fwd"]))
+	if u == hero and lock and not st.has("clip"):
+		u.ang = (knight.pos - u.pos).angle()  # walking, waiting...: facing him
 	u.pose = pose_for(u, st, u.cur)
 
 
@@ -603,10 +649,17 @@ func _hurt(v: Unit, by: Unit, d: int) -> void:
 
 # ---------------------------------------------------------------- blades
 
+## v's block, if it's up ({} = none).
+func guarding(v: Unit) -> Dictionary:
+	if v != hero or not guard or current(v).get("safe", false):
+		return {}
+	return guard_spec()
+
+
 ## Whether v, guarding, stops a hit landing at `at` (within the block's
 ## arc of where v faces).
 func blocks(v: Unit, at: Vector2) -> bool:
-	var arc := float(current(v).get("guard", 0.0))
+	var arc := float(guarding(v).get("block", 0.0))
 	if arc <= 0.0:
 		return false
 	var off := absf(angle_difference(v.ang, (at - v.pos).angle()))

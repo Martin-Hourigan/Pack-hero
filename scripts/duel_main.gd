@@ -14,17 +14,18 @@ extends Node2D
 ## The mouse
 ## aims the tool and left click does it; Space WAIT (a step). The buttons
 ## along the bottom do the same. The tool stays picked until another is
-## (so BLOCK, a step at a time, keeps blocking). Steps play until the hero's action is done
+## Steps play until the hero's action is done
 ## and you choose again (a walk also stops when the knight starts an attack).
 ## Esc (or the phone's back) to the title. After the fight, Space or a tap.
 ## On a phone (or with --touch) a tap aims (the preview shows there) and a
-## second tap on the same spot does it (a block: one tap, it's one step);
+## second tap on the same spot does it (locked on, a hand's tool: one tap);
 ## holding WAIT keeps waiting.
+## Toggles above the bottom right: LOCK (Q), 2H (E), GUARD (F); lit when
+## on. BLOCK, TWO HANDS and ONE HAND aren't in the menus: they're these.
 ## Dev flags (after --): --duel (straight in), --seed=N, --at=x,y (the hero
 ## there), --knight=sweep / backhand / overhead (he starts it now),
 ## --steps=N (play N steps first), --tool=right:light (picked) with
-## --mouse=x,y (aimed there), --touch, --blocking (the hero blocks those
-## steps), --menu=right (that hand's menu open), --gear=left,right or
+## --mouse=x,y (aimed there), --touch, --blocking (GUARD on), --lock (LOCK on), --menu=right (that hand's menu open), --gear=left,right or
 ## left,left2,right,right2 (e.g. crossbow,staff; _ for a space; the slots
 ## not named keep Acts.HANDS'), --gearscreen (open the gear
 ## screen), --dohero=right:heavy_bolt (the hero starts it, before --steps).
@@ -32,6 +33,9 @@ extends Node2D
 const STEP_T := 0.07  # s a step takes on screen
 const TOOLS := [["1", "move"], ["2", "roll"], ["3", "hand:left"], ["4", "hand:right"], ["5", "flask"]]
 const KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5]
+const TOGGLES := [["Q", "lock", "LOCK"], ["E", "two", "2H"], ["F", "guard", "GUARD"]]
+const TOGGLE_KEYS := [KEY_Q, KEY_E, KEY_F]
+const NOT_IN_MENU := ["block", "two hands", "one hand"]  # the toggles do these
 const SAME_TAP := 10.0  # px: a second tap this near the aim does it
 
 var duel: Duel
@@ -90,9 +94,12 @@ func _ready() -> void:
 			duel.start_attack(String(flags["knight"]))
 		if flags.has("dohero"):
 			duel.plan(String(flags["dohero"]).replace("_", " "), duel.knight.pos)
+		if flags.has("blocking"):
+			duel.toggle_guard()
+		duel.lock = flags.has("lock")
 		for i in int(flags.get("steps", "0")):
 			if duel.hero.idle():
-				duel.hero.cur = duel.shape("left:block", duel.knight.pos) if flags.has("blocking") else duel.shape("wait", duel.hero.pos)
+				duel.hero.cur = duel.shape("wait", duel.hero.pos)
 			duel.step()
 		tool = String(flags.get("tool", tool)).replace("_", " ")
 		menu = String(flags.get("menu", ""))
@@ -184,6 +191,51 @@ func buttons() -> Array:
 	return out
 
 
+## The toggles, above the bottom right: [rect, id, label].
+func toggle_buttons() -> Array:
+	var out := []
+	for i in TOGGLES.size():
+		var t: Array = TOGGLES[i]
+		out.append([Rect2(254 + 42 * i, 168, 40, 16), t[1], t[2] if touch else "%s %s" % [t[0], t[2]]])
+	return out
+
+
+## Whether toggle id is on.
+func toggled(id: String) -> bool:
+	match id:
+		"lock":
+			return duel.lock
+		"two":
+			return duel.grip != "" and duel.two_handed(duel.grip)
+		"guard":
+			return duel.guard
+	return false
+
+
+## Whether toggle id can do anything now.
+func can_toggle(id: String) -> bool:
+	match id:
+		"two":
+			return duel.two_tool() != ""
+		"guard":
+			return duel.guard or not duel.guard_spec().is_empty()
+	return true
+
+
+func toggle(id: String) -> void:
+	match id:
+		"lock":
+			duel.lock = not duel.lock
+		"two":
+			var t := duel.two_tool()
+			if t == "":
+				duel.wiggle["two"] = 0.4
+			else:
+				act(t, duel.hero.pos)
+		"guard":
+			duel.toggle_guard()
+
+
 ## The hand whose item does tool k ("" = none).
 static func hand_of(k: String) -> String:
 	return k.split(":")[0] if ":" in k else ""
@@ -203,7 +255,7 @@ func menu_buttons() -> Array:
 		if b[1] == "hand:" + menu:
 			at = b[0]
 	var out := []
-	var does: Array = duel.options(menu).keys()
+	var does: Array = duel.options(menu).keys().filter(func(o): return not o in NOT_IN_MENU)
 	var w := minf(at.size.x, 80.0)
 	for i in does.size():
 		var id := menu + ":" + String(does[i])
@@ -289,6 +341,10 @@ func _press(p: Vector2) -> void:
 			return
 		if _hit(buttons(), p) == "hand:" + was:
 			return  # its button again: just closed
+	var tg := _hit(toggle_buttons(), p)
+	if tg != "":
+		toggle(tg)
+		return
 	var b := _hit(buttons(), p)
 	if b.begins_with("hand:"):
 		menu = b.trim_prefix("hand:")
@@ -302,7 +358,7 @@ func _press(p: Vector2) -> void:
 	elif b != "":
 		tool = b
 		aimed = false
-	elif not touch or duel.spec(tool).has("block"):
+	elif not touch or (duel.lock and ":" in tool):
 		act(tool, p)
 	elif aimed and p.distance_to(hover) <= SAME_TAP:
 		if act(tool, hover):
@@ -339,7 +395,9 @@ func _key(k: int, echo: bool) -> void:
 		if (k == KEY_SPACE or k == KEY_ENTER) and not echo:
 			begin()
 		return
-	if KEYS.has(k) and not echo:
+	if TOGGLE_KEYS.has(k) and not echo:
+		toggle(TOGGLES[TOGGLE_KEYS.find(k)][1])
+	elif KEYS.has(k) and not echo:
 		var t: String = TOOLS[KEYS.find(k)][1]
 		if t == "flask":
 			act("flask", duel.hero.pos)

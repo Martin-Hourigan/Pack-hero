@@ -186,23 +186,46 @@ func _hero() -> void:
 	check(d.hero.hp == 50 + int(Acts.HERO["heal"]) and d.flasks == int(Acts.HERO["flasks"]) - 1, "a flask heals")
 	d.flasks = 0
 	check(not d.plan("flask", d.hero.pos), "no flasks left: no")
-	# Blocking toward the swing, step after step: no damage. Turned away: hit.
+	# GUARD on, facing the swing: no damage, whatever he's doing. Turned
+	# away: hit.
 	for away in [false, true]:
 		d = Duel.new(1)
 		d.hero.pos = d.knight.pos + Vector2(-30, 0)
 		d.knight.ang = PI
 		d.start_attack("sweep")
-		var face := d.hero.pos + (Vector2(-20, 0) if away else Vector2(20, 0))
+		check(d.toggle_guard() and d.guard, "GUARD goes on")
+		d.hero.ang = PI if away else 0.0
 		hp = d.hero.hp
 		for i in d.knight.cur["steps"].size():
 			if d.hero.idle():
-				d.plan("left:block", face)
+				d.plan("wait", d.hero.pos)
 			d.step()
 		if away:
-			check(d.hero.hp < hp, "blocking the wrong way, hit")
+			check(d.hero.hp < hp, "guarding the wrong way, hit")
 		else:
-			check(d.hero.hp == hp, "blocking toward the swing, no damage", str(hp - d.hero.hp))
-	check(d.shape("left:block", d.knight.pos)["steps"].size() == 1, "a block is one step")
+			check(d.hero.hp == hp, "guarding toward the swing, no damage", str(hp - d.hero.hp))
+	# Attacking doesn't drop the guard; rolling does. Stamina comes back slower.
+	d = _armed("kite shield", "longsword")
+	d.toggle_guard()
+	d.plan("right:light", d.knight.pos)
+	_until_free(d)
+	check(d.guard, "an attack keeps GUARD on")
+	d.stamina = 50
+	d.plan("wait", d.hero.pos)
+	d.step()
+	check(d.stamina == 50 + int(Acts.HERO["guard_back"]), "guarding, stamina comes back slower", str(d.stamina))
+	d.plan("roll", d.hero.pos + Vector2(-20, 0))
+	check(not d.guard, "a roll drops GUARD")
+	d = _armed("crossbow", "longsword")
+	check(not d.toggle_guard() and d.wiggle.has("guard"), "nothing to block with: GUARD wiggles")
+	# LOCK: hand tools aim at the knight wherever you point; walking, he faces him.
+	d = _armed("kite shield", "longsword")
+	d.lock = true
+	var a := d.shape("right:light", d.hero.pos + Vector2(0, -50))
+	check(is_equal_approx(float(a["steps"][0]["face"]), (d.knight.pos - d.hero.pos).angle()), "locked on: the attack aims at him")
+	d.plan("move", d.hero.pos + Vector2(0, 30))
+	d.step()
+	check(absf(angle_difference(d.hero.ang, (d.knight.pos - d.hero.pos).angle())) < 0.01, "locked on: walking, he faces him")
 	_gear()
 	# A walk stops when the knight starts an attack.
 	d = Duel.new(1)
@@ -292,6 +315,8 @@ func _gear() -> void:
 			for form in 3:
 				for hand in d.hands():
 					for o in d.options(hand):
+						if o == "block":
+							continue  # GUARD's
 						check(not d.shape(hand + ":" + o, d.knight.pos).is_empty(), "%s in the %s hand (%s): %s" % [th, h, d.item_key(hand), o])
 				var hand0: String = d.hands()[0] if h in d.hands() else h
 				var change := ""
@@ -311,11 +336,13 @@ func _gear() -> void:
 	check(d.held("right") == "claymore" and d.hands().size() == 2, "swapped: the claymore, in one hand")
 	var one := d.cost("right:light")
 	var one_dmg := int(d.spec("right:light")["dmg"])
-	d.plan("right:two hands", d.hero.pos)
+	check(d.two_tool() == "right:two hands", "2H: the right hand's item")
+	d.plan(d.two_tool(), d.hero.pos)
 	_until_free(d)
 	check(d.hands() == ["right"] and d.options("right").has("block"), "in two hands: one button, and it can block")
 	check(d.cost("right:light") < one and int(d.spec("right:light")["dmg"]) > one_dmg, "one-handed, the claymore costs more and hits less")
-	d.plan("right:one hand", d.hero.pos)
+	check(d.two_tool() == "right:one hand", "2H again: let go")
+	d.plan(d.two_tool(), d.hero.pos)
 	_until_free(d)
 	check(d.hands().size() == 2, "back to one hand")
 	d.plan("right:swap", d.hero.pos)
@@ -324,13 +351,15 @@ func _gear() -> void:
 	# A two-handed longsword blocks half a swing, and isn't knocked back.
 	d = Duel.new(1, _kit("kite shield", "longsword"))
 	d.grip = "right"
+	d.toggle_guard()
 	d.hero.pos = d.knight.pos + Vector2(-30, 0)
+	d.hero.ang = 0.0
 	d.knight.ang = PI
 	d.start_attack("sweep")
 	var hp := d.hero.hp
 	for i in d.knight.cur["steps"].size():
 		if d.hero.idle():
-			d.plan("right:block", d.knight.pos)
+			d.plan("wait", d.hero.pos)
 		d.step()
 		check(String(d.hero.cur.get("k", "")) != "hurt", "a weapon block: not knocked back")
 	check(hp - d.hero.hp == roundi(int(Acts.KNIGHT["sweep"]["dmg"]) * 0.5), "a weapon block stops half", str(hp - d.hero.hp))

@@ -156,6 +156,32 @@ BUILT: all of the above. Gear screen: two slots a hand, the top one held
 first (the second dimmer). Starting gear: kite shield / staff, longsword /
 claymore.
 
+TOGGLES: LOCK, 2H, GUARD (2026-11-20)
+DECIDED (Martin)
+- A two-handed toggle and a lock-on toggle; shielding is a toggle too.
+- The block lasts until you dodge (roll). Attacks don't cancel it for now;
+  when there are weighted attacks, the heavy ones could.
+- While shielding, stamina comes back slower.
+BUILT
+- Three toggles above the bottom right, lit when on: LOCK (Q), 2H (E),
+  GUARD (F). BLOCK, TWO HANDS and ONE HAND left the menus.
+- LOCK: the hero faces the knight while walking, waiting, drinking; a
+  hand's attacks and spells aim at him (on the phone, one tap does them).
+  MOVE and ROLL are still aimed where you tap.
+- 2H: the right hand's item in two hands, else the left's; again lets go.
+  1 step.
+- GUARD: the shield's (or the two-handed weapon's) block is up whatever
+  the hero does, in front of where he faces (a faint arc shows it), until
+  a roll. Nothing to block with: GUARD wiggles.
+PLACEHOLDER
+- Starts with LOCK and GUARD off. Turning LOCK or GUARD on or off takes no
+  step.
+- Guarding: stamina back 2 a step instead of 4. Walking with it up isn't
+  slower.
+- The guard stays up during attacks, a two-handed weapon's too (it blocks
+  while it swings).
+- Swapping or transforming to something with no block turns GUARD off.
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 

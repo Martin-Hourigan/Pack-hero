@@ -35,6 +35,7 @@ func _draw() -> void:
 		draw_rect(Rect2(_px(s["p"]), Vector2.ONE * (2.0 if s["life"] / s["max"] > 0.5 else 1.0)), s["col"])
 	for n in d.numbers:
 		Pal.text(self, _px(n["p"]) - Vector2(Pal.width(n["s"]) / 2.0, 0), n["s"], n["col"])
+	_guard(d)
 	_bars(d)
 	_tools(d)
 	if d.result != "":
@@ -92,18 +93,14 @@ func _ghosts(d: Duel) -> void:
 ## What the picked tool would do where the mouse is.
 func _preview(d: Duel) -> void:
 	var h := d.hero
-	if not h.idle() or main.u < 1.0 or d.result != "" or (main.touch and not main.aimed):
+	if not h.idle() or main.u < 1.0 or d.result != "":
+		return
+	if main.touch and not main.aimed and not (d.lock and ":" in main.tool):
 		return
 	var a: Dictionary = d.shape(main.tool, main.hover)
 	if a.is_empty():
 		return
 	var sp := d.spec(main.tool)
-	if sp.has("block"):
-		# The front it guards.
-		var aim := float(a["steps"][0]["face"])
-		var half := deg_to_rad(float(sp["block"])) / 2.0
-		draw_arc(_px(h.pos), Duel._radius(h) + 4.0, aim - half, aim + half, 16, Pal.INK.darkened(0.3))
-		return
 	if sp.has("shot"):
 		_shot_path(d, String(sp["shot"]), float(a["steps"][0]["face"]), int(sp["wind"]))
 		return
@@ -147,6 +144,21 @@ func _unit(d: Duel, u: Unit) -> void:
 	if u.flash >= 0.5:
 		o["all"] = Color.WHITE
 	RigArt.draw(self, d.art(u), Transform2D(a, Vector2(s, s), 0.0, _px(p)), o)
+
+
+## GUARD up: the front it stops hits from, round the hero.
+func _guard(d: Duel) -> void:
+	var g := d.guarding(d.hero)
+	if g.is_empty():
+		return
+	var h := d.hero
+	var a := h.ang
+	var p := h.pos
+	if not h.was.is_empty() and main.u < 1.0:
+		a = lerp_angle(float(h.was["ang"]), h.ang, main.u)
+		p = Vector2(h.was["pos"]).lerp(h.pos, main.u)
+	var half := deg_to_rad(float(g["block"])) / 2.0
+	draw_arc(_px(p), Duel._radius(h) + 4.0, a - half, a + half, 16, Pal.INK.darkened(0.5))
 
 
 ## Health (and stamina, flasks) along the top.
@@ -195,8 +207,15 @@ func _tools(d: Duel) -> void:
 		var no: bool = d.cost(id) > d.stamina or d.casts_left(id) == 0 \
 			or (sp.get("loaded", false) and not d.is_loaded(main.hand_of(id)))
 		_button(b[0], b[2], Pal.DIM.darkened(0.45) if no else Pal.INK, main.tool == id)
+	for b in main.toggle_buttons():
+		var id: String = b[1]
+		var on: bool = main.toggled(id)
+		var col: Color = Pal.INK if on else (Pal.DIM if main.can_toggle(id) else Pal.DIM.darkened(0.45))
+		var r: Rect2 = b[0]
+		r.position.x += _wig(d, id)
+		_button(r, b[2], col, on)
 	var s := str(d.step_n)
-	Pal.text(self, Vector2(380 - Pal.width(s), 178), s, Pal.DARK.lightened(0.2))
+	Pal.text(self, Vector2(380 - Pal.width(s), 160), s, Pal.DARK.lightened(0.2))
 
 
 ## A button; `under` is a second, dimmer line below the label.

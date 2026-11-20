@@ -118,6 +118,7 @@ const HERO := {
 	"walk": 4.0,  # px a step
 	"stamina": 100,
 	"stamina_back": 4,  # a step, when not attacking, rolling or drinking
+	"guard_back": 2,  # instead, while GUARD is on
 	"flasks": 2,
 	"heal": 100,
 	"drink": 5,  # steps a flask takes
