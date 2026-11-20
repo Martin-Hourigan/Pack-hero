@@ -174,8 +174,8 @@ const CHANGE := {"swap": 1, "two hands": 1, "one hand": 1, "transform": 1}
 ## dmg, st (stamina), lunge (px a swing step). shot: SHOTS entry, fired on
 ## the first swing step. casts: a limit (spells). loaded: needs loading
 ## first (a crossbow). reload: steps. block: arc (degrees in front where
-## hits are stopped); cut: how much of a stopped hit still hurts. Attacks
-## drop GUARD unless "keeps guard".
+## hits are stopped); cut: how much of a stopped hit still hurts. Anything
+## but walking drops GUARD, unless "keeps guard".
 const ITEMS := {
 	"longsword": {"name": "LONGSWORD", "hands": 1, "key": "ls", "nodes": ["ls_hilt", "ls_blade"], "blade": "ls_blade", "does": {
 		"light": {"clip": "ls_light", "wind": 1, "swing": 4, "rec": 2, "live": [1, 2, 3, 4], "dmg": 30, "st": 20},

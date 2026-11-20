@@ -201,7 +201,7 @@ func _hero() -> void:
 		hp = d.hero.hp
 		for i in d.knight.cur["steps"].size():
 			if d.hero.idle():
-				d.plan("wait", d.hero.pos)
+				_still(d, 1)
 			d.step()
 		if away:
 			check(d.hero.hp < hp, "guarding the wrong way, hit")
@@ -234,11 +234,17 @@ func _hero() -> void:
 	d.toggle_guard()
 	_until_free(d)
 	d.stamina = 50
-	d.plan("wait", d.hero.pos)
+	_still(d, 1)
 	d.step()
 	check(d.stamina == 50 + int(Acts.HERO["guard_back"]), "guarding, stamina comes back slower", str(d.stamina))
 	d.plan("roll", d.hero.pos + Vector2(-20, 0))
 	check(not d.guard, "a roll drops GUARD")
+	# Walking keeps it; anything else drops it.
+	for k in ["move", "wait", "flask", "left:swap"]:
+		d = _armed("kite shield", "pike")
+		d.toggle_guard()
+		d.plan(k, d.hero.pos + Vector2(-20, 0))
+		check(d.guard == (k == "move"), "%s %s GUARD" % [k, "keeps" if k == "move" else "drops"])
 	d = _armed("crossbow", "longsword")
 	check(not d.toggle_guard() and d.wiggle.has("guard"), "nothing to block with: GUARD wiggles")
 	# LOCK: picked by where you tap; shots aim at it wherever you point,
@@ -563,7 +569,7 @@ func _gear() -> void:
 	var hp := d.hero.hp
 	for i in d.knight.cur["steps"].size():
 		if d.hero.idle():
-			d.plan("wait", d.hero.pos)
+			_still(d, 1)
 		d.step()
 		check(String(d.hero.cur.get("k", "")) != "hurt", "a weapon block: not knocked back")
 	check(hp - d.hero.hp == roundi(int(Acts.KNIGHT["sweep"]["dmg"]) * 0.5), "a weapon block stops half", str(hp - d.hero.hp))
