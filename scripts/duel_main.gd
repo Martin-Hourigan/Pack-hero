@@ -4,8 +4,11 @@ extends Node2D
 ##
 ## Title: Space the knight, R the raptor (not on the phone: its controls are
 ## keys). The update button checks GitHub for a newer APK.
-## Gear (before the knight): two slots a hand; tap one to change what's in
-## it (Acts.GEAR's order); the top slot is held first. FIGHT or Space.
+## Gear (before the knight): two slots a hand down each side (the top one
+## held first), a grid of every item (Acts.GEAR) between. Tap a slot to
+## pick it, then an item to put it there. The name of what the mouse is
+## over (on the phone, what was last tapped) shows under the grid. FIGHT
+## or Space.
 ## In the duel: 1 MOVE, 2 ROLL, 5 FLASK; 3 and 4 open the left and right
 ## hand's menus (the item's name on the button; the menu lists what it can
 ## do: LIGHT, HEAVY, BLOCK, ARROW...; spells with their casts left), and
@@ -54,6 +57,7 @@ var aimed := false  # touch: a spot has been tapped
 var held := ""  # the button being held down
 var menu := ""  # the hand whose menu is open ("left", "right")
 var picking := false  # LOCK tapped: tap an enemy to lock on
+var slot := "right0"  # the gear screen's slot being filled
 
 var update_state := "idle"  # idle, checking, latest, new, failed, downloading, ready, download_failed
 var update_tag := ""
@@ -278,25 +282,33 @@ func menu_buttons() -> Array:
 	return out
 
 
-## The gear screen's buttons: [rect, id, label]; a slot's id is its hand
-## and number ("left0").
+const CELL := 32.0  # a gear screen square, px
+
+
+## The gear screen's buttons: [rect, id, label]. A slot's id is
+## "slot:" + its hand and number ("slot:left0"), an item's "item:" + it.
 func gear_buttons() -> Array:
 	var out := []
 	for h in ["left", "right"]:
 		for i in 2:
-			var x := 60.0 if h == "left" else 204.0
-			out.append([Rect2(x, 72 + 28 * i, 120, 24), h + str(i), Acts.ITEMS[gear[h][i]]["name"]])
-	out.append([Rect2(132, 140, 120, 20), "fight", "FIGHT" if touch else "SPACE  FIGHT"])
+			var x := 36.0 if h == "left" else 316.0
+			var th: String = gear[h][i]
+			out.append([Rect2(x, 52 + (CELL + 4) * i, CELL, CELL), "slot:" + h + str(i), th])
+	for i in Acts.GEAR.size():
+		var th: String = Acts.GEAR[i]
+		var x := 192.0 - 2.0 * (CELL + 2) + (CELL + 2) * (i % 4)
+		out.append([Rect2(x, 52 + (CELL + 4) * (i / 4), CELL, CELL), "item:" + th, th])
+	out.append([Rect2(132, 150, 120, 20), "fight", "FIGHT" if touch else "SPACE  FIGHT"])
 	out.append([Rect2(358, 188, 22, 20), "back", "<"])
 	return out
 
 
-## Puts the next item (Acts.GEAR) in slot `sl` ("left0").
-func next_gear(sl: String) -> void:
-	var h := sl.left(-1)
-	var n := int(sl.right(1))
-	var i := Acts.GEAR.find(gear[h][n])
-	gear[h][n] = Acts.GEAR[(i + 1) % Acts.GEAR.size()]
+## The name the gear screen shows: what's under the mouse (or the last tap).
+func gear_name() -> String:
+	for b in gear_buttons():
+		if Rect2(b[0]).has_point(hover) and (String(b[1]).begins_with("slot:") or String(b[1]).begins_with("item:")):
+			return Acts.ITEMS[b[2]]["name"]
+	return ""
 
 
 ## The title's buttons: [rect, id, label].
@@ -329,9 +341,14 @@ func _press(p: Vector2) -> void:
 					mode = "gear"
 		return
 	if mode == "gear":
-		match _hit(gear_buttons(), p):
-			"left0", "left1", "right0", "right1":
-				next_gear(_hit(gear_buttons(), p))
+		if touch:
+			hover = p
+		var g := _hit(gear_buttons(), p)
+		if g.begins_with("slot:"):
+			slot = g.trim_prefix("slot:")
+		elif g.begins_with("item:"):
+			gear[slot.left(-1)][int(slot.right(1))] = g.trim_prefix("item:")
+		match g:
 			"fight":
 				begin()
 			"back":

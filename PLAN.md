@@ -187,6 +187,18 @@ PLACEHOLDER
   while it swings).
 - Swapping or transforming to something with no block turns GUARD off.
 
+GEAR GRID (2026-11-20)
+DECIDED (Martin): the gear screen is a grid of icons; hovering shows the
+name (it used to cycle through them all).
+BUILT: two slots a hand down each side (top held first), the 8 items in a
+4x2 grid between. Tap a slot (it lights), then an item to put it there;
+the item in the picked slot lights in the grid. The name of what the mouse
+is over shows under the grid; on the phone (no hover), what was last
+tapped.
+PLACEHOLDER: icons are the puppet's own item art (long ones diagonal, as
+big as whole pixels fit). The kite shield is seen from above, so its icon
+looks like a thin curve (like a bow); a face-on icon would need drawing.
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 

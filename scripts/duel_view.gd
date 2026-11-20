@@ -311,11 +311,63 @@ func _shot_path(d: Duel, k: String, ang: float, wind: int) -> void:
 
 func _gear() -> void:
 	position = Vector2.ZERO
-	Pal.text(self, Vector2(120 - Pal.width("LEFT HAND") / 2.0, 62), "LEFT HAND", Pal.DIM)
-	Pal.text(self, Vector2(264 - Pal.width("RIGHT HAND") / 2.0, 62), "RIGHT HAND", Pal.DIM)
+	Pal.text(self, Vector2(52 - Pal.width("LEFT") / 2.0, 42), "LEFT", Pal.DIM)
+	Pal.text(self, Vector2(332 - Pal.width("RIGHT") / 2.0, 42), "RIGHT", Pal.DIM)
+	var sel: String = "slot:" + main.slot
+	var held := String(main.slot)
+	var in_slot: String = main.gear[held.left(-1)][int(held.right(1))]
 	for b in main.gear_buttons():
-		var second := String(b[1]).ends_with("1")
-		_button(b[0], b[2], Pal.DIM if b[1] == "back" or second else Pal.INK, b[1] == "fight")
+		var id: String = b[1]
+		var r: Rect2 = b[0]
+		if id.begins_with("slot:") or id.begins_with("item:"):
+			var on := id == sel or id == "item:" + in_slot
+			var over: bool = r.has_point(main.hover)
+			draw_rect(r, Pal.BG)
+			draw_rect(r.grow(-0.5), Pal.INK if on else (Pal.DIM if over else Pal.DARK), false)
+			_icon(String(b[2]), r)
+		else:
+			_button(r, b[2], Pal.INK if b[1] != "back" else Pal.DIM, b[1] == "fight")
+	var name: String = main.gear_name()
+	Pal.text(self, Vector2(192 - Pal.width(name) / 2.0, 130), name, Pal.INK)
+
+
+## Item th drawn in r from the hero's puppet, as big as whole pixels let
+## it fit; long ones (over 14 px) lie corner to corner.
+func _icon(th: String, r: Rect2) -> void:
+	var it: Dictionary = Acts.ITEMS[th]
+	var path := String(Acts.DUEL_UNITS["hero"]["art"])
+	var only := []
+	for n in it["nodes"]:
+		only.append(Duel.node_of(n, it, "right"))
+	var pose := {}
+	for n in it.get("look", {}):
+		pose[n] = {"part": it["look"][n]}
+	var room := r.size.x - 6.0
+	var ang := 0.0
+	var box := _icon_box(path, only, pose, Transform2D.IDENTITY)
+	if box.size.x > 14.0:
+		ang = -PI / 4.0
+		box = _icon_box(path, only, pose, Transform2D(ang, Vector2.ZERO))
+	var sc := clampf(floorf(room / maxf(box.size.x, box.size.y)), 1.0, 3.0)
+	var t := Transform2D(ang, Vector2(sc, sc), 0.0, Vector2.ZERO)
+	box = _icon_box(path, only, pose, t)
+	t.origin = (r.get_center() - box.get_center()).round()
+	RigArt.draw(self, path, Transform2D.IDENTITY, {"only": only, "pose": pose, "world": {"hand_r": t, "hand_l": t}})
+
+
+## The box an icon's shapes cover, its hand placed by t.
+func _icon_box(path: String, only: Array, pose: Dictionary, t: Transform2D) -> Rect2:
+	var box := Rect2()
+	var first := true
+	for e in RigArt.geometry(path, Transform2D.IDENTITY, {"only": only, "pose": pose, "world": {"hand_r": t, "hand_l": t}}):
+		for poly in e["polys"]:
+			for q in poly:
+				if first:
+					box = Rect2(q, Vector2.ZERO)
+					first = false
+				else:
+					box = box.expand(q)
+	return box
 
 
 func _title() -> void:
