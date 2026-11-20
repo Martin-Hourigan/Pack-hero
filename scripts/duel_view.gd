@@ -96,7 +96,7 @@ func _preview(d: Duel) -> void:
 	var h := d.hero
 	if not h.idle() or main.u < 1.0 or d.result != "":
 		return
-	if main.picking or (main.touch and not main.aimed and not (d.target != null and ":" in main.tool)):
+	if main.picking or (main.touch and not main.aimed and not (d.target != null and d.auto_aims(main.tool))):
 		return
 	var a: Dictionary = d.shape(main.tool, main.hover)
 	if a.is_empty():

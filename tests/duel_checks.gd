@@ -218,19 +218,21 @@ func _hero() -> void:
 	check(not d.guard, "a roll drops GUARD")
 	d = _armed("crossbow", "longsword")
 	check(not d.toggle_guard() and d.wiggle.has("guard"), "nothing to block with: GUARD wiggles")
-	# LOCK: picked by where you tap; hand tools aim at it wherever you point;
-	# walking, he faces it.
-	d = _armed("kite shield", "longsword")
+	# LOCK: picked by where you tap; shots aim at it wherever you point,
+	# swings where you point; walking, he faces it.
+	d = _armed("longsword", "staff")
 	var dummy := d._add("knight", d.hero.pos + Vector2(0, 60), 0.0)
 	dummy.side = "enemy"
 	check(d.enemy_at(d.knight.pos + Vector2(3, 0)) == d.knight and d.enemy_at(dummy.pos) == dummy, "a tap on an enemy picks it")
 	check(d.enemy_at(d.hero.pos) == null, "a tap off them picks nothing")
 	d.target = dummy
-	var b := d.shape("right:light", d.hero.pos + Vector2(50, 0))
-	check(is_equal_approx(float(b["steps"][0]["face"]), (dummy.pos - d.hero.pos).angle()), "locked on to the other: aims at it")
+	var b := d.shape("right:bolt", d.hero.pos + Vector2(50, 0))
+	check(is_equal_approx(float(b["steps"][0]["face"]), (dummy.pos - d.hero.pos).angle()), "locked on to the other: a shot aims at it")
 	d.target = d.knight
-	var a := d.shape("right:light", d.hero.pos + Vector2(0, -50))
-	check(is_equal_approx(float(a["steps"][0]["face"]), (d.knight.pos - d.hero.pos).angle()), "locked on: the attack aims at him")
+	var a := d.shape("right:bolt", d.hero.pos + Vector2(0, -50))
+	check(is_equal_approx(float(a["steps"][0]["face"]), (d.knight.pos - d.hero.pos).angle()), "locked on: a shot aims at him")
+	var sw := d.shape("left:light", d.hero.pos + Vector2(0, -50))
+	check(is_equal_approx(float(sw["steps"][0]["face"]), -PI / 2.0), "locked on: a swing goes where you aim")
 	d.plan("move", d.hero.pos + Vector2(0, 30))
 	d.step()
 	check(absf(angle_difference(d.hero.ang, (d.knight.pos - d.hero.pos).angle())) < 0.01, "locked on: walking, he faces him")

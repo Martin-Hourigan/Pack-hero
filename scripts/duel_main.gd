@@ -21,7 +21,7 @@ extends Node2D
 ## and you choose again (a walk also stops when the knight starts an attack).
 ## Esc (or the phone's back) to the title. After the fight, Space or a tap.
 ## On a phone (or with --touch) a tap aims (the preview shows there) and a
-## second tap on the same spot does it (locked on, a hand's tool: one tap);
+## second tap on the same spot does it (locked on, a shot: one tap);
 ## LOCK: then tap (click) an enemy to lock on to it (the mouse is a reticle
 ## meanwhile; LOCK again stops picking); locked on, LOCK lets go.
 ## holding WAIT keeps waiting.
@@ -393,7 +393,7 @@ func _press(p: Vector2) -> void:
 	elif b != "":
 		tool = b
 		aimed = false
-	elif not touch or (duel.target != null and ":" in tool):
+	elif not touch or (duel.target != null and duel.auto_aims(tool)):
 		act(tool, p)
 	elif aimed and p.distance_to(hover) <= SAME_TAP:
 		if act(tool, hover):

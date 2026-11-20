@@ -12,7 +12,7 @@ extends RefCounted
 ## The hero's tools: move, roll, flask, wait, and "hand:thing" for what the
 ## item in that hand does (Acts.ITEMS), e.g. "right:light", "left:bolt",
 ## or SWAP, TWO HANDS, ONE HAND, TRANSFORM ("left:swap"; Acts.CHANGE).
-## Toggles: LOCK (on an enemy picked: he faces it; hand tools aim at it), GUARD (a
+## Toggles: LOCK (on an enemy picked: he faces it; shots aim at it), GUARD (a
 ## shield's or two-handed weapon's BLOCK, held up whatever he's doing, until
 ## a roll; stamina comes back slower).
 ## Each hand has two slots and holds one; an item held in both hands (a
@@ -187,6 +187,12 @@ func guard_spec() -> Dictionary:
 	return {}
 
 
+## Whether tool k, locked on, aims itself at the target: shots do; a
+## melee swing you still aim (its reach shows).
+func auto_aims(k: String) -> bool:
+	return spec(k).has("shot")
+
+
 ## The enemy whose body is at p, give or take `slack` px (null = none).
 func enemy_at(p: Vector2, slack := 4.0) -> Unit:
 	for u in units:
@@ -345,7 +351,7 @@ func _act(k: String, steps: Array) -> Dictionary:
 ## What the hero would do with tool k aimed at `at` ({} = can't).
 func shape(k: String, at: Vector2) -> Dictionary:
 	var u := hero
-	if target != null and ":" in k:
+	if target != null and auto_aims(k):
 		at = target.pos
 	var aim := (at - u.pos).angle() if at.distance_to(u.pos) > 0.5 else u.ang
 	match k:

@@ -169,9 +169,10 @@ BUILT
   cursor turns into a reticle, and it needs an enemy picked to go ahead).
   Until then LOCK blinks and other taps on the arena do nothing; LOCK again
   stops picking. Locked: corner marks on that enemy; the hero faces it
-  while walking, waiting, drinking; a hand's attacks and spells aim at it
-  (on the phone, one tap does them). MOVE and ROLL are still aimed where
-  you tap. LOCK while locked lets go; it lets go when that enemy dies.
+  while walking, waiting, drinking; shots (arrows, bolts, spells) aim
+  themselves at it (on the phone, one tap does them). Melee swings are
+  still aimed (Martin: their reach shows, so it makes sense not to have
+  them auto), and so are MOVE and ROLL. LOCK while locked lets go; it lets go when that enemy dies.
   On the phone (no cursor) every enemy pulses with a reticle while picking.
 - 2H: the right hand's item in two hands, else the left's; again lets go.
   1 step.
