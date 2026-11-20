@@ -162,6 +162,9 @@ DECIDED (Martin)
 - The block lasts until you dodge (roll). Attacks don't cancel it for now;
   when there are weighted attacks, the heavy ones could.
 - While shielding, stamina comes back slower.
+- 2026-11-21: attacks DO cancel it (the longsword's should). Some don't:
+  standard spear attacks keep the shield up while attacking; if hit, fine,
+  they keep attacking while getting hit. A one-handed PIKE added for it.
 BUILT
 - Three toggles above the bottom right, lit when on: LOCK (Q), 2H (E),
   GUARD (F). BLOCK, TWO HANDS and ONE HAND left the menus.
@@ -178,14 +181,18 @@ BUILT
   1 step.
 - GUARD: the shield's (or the two-handed weapon's) block is up whatever
   the hero does, in front of where he faces (a faint arc shows it), until
-  a roll. Nothing to block with: GUARD wiggles.
+  a roll or an attack (melee or shot). Nothing to block with: GUARD wiggles.
+- PIKE (either hand): its LIGHT ("keeps guard") leaves GUARD on, and the
+  shield blocks while it thrusts; its HEAVY drops GUARD.
 PLACEHOLDER
 - Starts with LOCK and GUARD off. Turning LOCK or GUARD on or off takes no
   step.
 - Guarding: stamina back 2 a step instead of 4. Walking with it up isn't
   slower.
-- The guard stays up during attacks, a two-handed weapon's too (it blocks
-  while it swings).
+- Pike LIGHT keeps the guard, HEAVY drops it. Pike numbers: LIGHT wind 1,
+  swing 2, back 1, dmg 25, st 15; HEAVY wind 2, swing 3, back 2, lunge 3,
+  dmg 50, st 30. Its look: shaft 20 px with a small steel head.
+- Flask, wait, swap, transform don't drop the guard.
 - Swapping or transforming to something with no block turns GUARD off.
 
 GEAR GRID (2026-11-20)

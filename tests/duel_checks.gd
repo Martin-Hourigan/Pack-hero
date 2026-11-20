@@ -207,12 +207,32 @@ func _hero() -> void:
 			check(d.hero.hp < hp, "guarding the wrong way, hit")
 		else:
 			check(d.hero.hp == hp, "guarding toward the swing, no damage", str(hp - d.hero.hp))
-	# Attacking doesn't drop the guard; rolling does. Stamina comes back slower.
+	# An attack drops the guard, but a pike's LIGHT keeps it (and the shield
+	# still blocks mid-thrust). Stamina comes back slower; a roll drops it.
 	d = _armed("kite shield", "longsword")
 	d.toggle_guard()
 	d.plan("right:light", d.knight.pos)
+	check(not d.guard, "a longsword attack drops GUARD")
+	d = _armed("kite shield", "pike")
+	d.toggle_guard()
+	d.plan("right:heavy", d.knight.pos)
+	check(not d.guard, "a pike's HEAVY drops GUARD")
+	d = _armed("kite shield", "pike")
+	d.hero.pos = d.knight.pos + Vector2(-30, 0)
+	d.hero.ang = 0.0
+	d.knight.ang = PI
+	d.start_attack("sweep")
+	d.toggle_guard()
+	hp = d.hero.hp
+	for i in d.knight.cur["steps"].size():
+		if d.hero.idle():
+			d.plan("right:light", d.knight.pos)
+		d.step()
+	check(d.guard, "a pike's LIGHT keeps GUARD on")
+	check(d.hero.hp == hp, "thrusting with the guard up, the shield still blocks", str(hp - d.hero.hp))
+	d.toggle_guard()
+	d.toggle_guard()
 	_until_free(d)
-	check(d.guard, "an attack keeps GUARD on")
 	d.stamina = 50
 	d.plan("wait", d.hero.pos)
 	d.step()

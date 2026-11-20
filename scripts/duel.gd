@@ -508,7 +508,7 @@ func plan(k: String, at: Vector2) -> bool:
 			wiggle["flasks"] = 0.4
 		return false
 	stamina -= cost(k)
-	if k == "roll":
+	if k == "roll" or ((s.has("live") or s.has("shot")) and not s.get("keeps guard", false)):
 		guard = false
 	if casts_left(k) > 0:
 		casts[item_key(h) + ":" + k.split(":")[1]] = casts_left(k) - 1

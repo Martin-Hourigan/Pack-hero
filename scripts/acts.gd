@@ -158,7 +158,7 @@ const HERO := {
 ## changes it); the first slot of each is held.
 const HANDS := {"left": ["kite shield", "staff"], "right": ["longsword", "claymore"]}
 ## The order the gear screen goes through.
-const GEAR := ["longsword", "kite shield", "crossbow", "staff", "claymore", "bow", "greatbow", "quarterstaff", "greatspear"]
+const GEAR := ["longsword", "kite shield", "crossbow", "staff", "claymore", "bow", "greatbow", "quarterstaff", "greatspear", "pike"]
 ## Steps it takes to SWAP a hand to its other item, take an item in TWO
 ## HANDS or back to ONE HAND, and TRANSFORM a trick weapon.
 const CHANGE := {"swap": 1, "two hands": 1, "one hand": 1, "transform": 1}
@@ -174,7 +174,8 @@ const CHANGE := {"swap": 1, "two hands": 1, "one hand": 1, "transform": 1}
 ## dmg, st (stamina), lunge (px a swing step). shot: SHOTS entry, fired on
 ## the first swing step. casts: a limit (spells). loaded: needs loading
 ## first (a crossbow). reload: steps. block: arc (degrees in front where
-## hits are stopped); cut: how much of a stopped hit still hurts.
+## hits are stopped); cut: how much of a stopped hit still hurts. Attacks
+## drop GUARD unless "keeps guard".
 const ITEMS := {
 	"longsword": {"name": "LONGSWORD", "hands": 1, "key": "ls", "nodes": ["ls_hilt", "ls_blade"], "blade": "ls_blade", "does": {
 		"light": {"clip": "ls_light", "wind": 1, "swing": 4, "rec": 2, "live": [1, 2, 3, 4], "dmg": 30, "st": 20},
@@ -237,6 +238,11 @@ const ITEMS := {
 	"spear staff": {"name": "SPEAR STAFF", "hands": 1, "key": "gst", "nodes": ["gst"], "does": {
 		"bolt": {"clip": "st_bolt", "wind": 3, "swing": 1, "rec": 1, "shot": "magic bolt", "st": 20, "casts": 20},
 		"heavy bolt": {"clip": "st_heavy", "wind": 5, "swing": 1, "rec": 2, "shot": "heavy magic bolt", "st": 40, "casts": 20},
+	}},
+	# One-handed, so a shield can stay up: its LIGHT keeps GUARD on.
+	"pike": {"name": "PIKE", "hands": 1, "key": "pk", "nodes": ["pk", "pk_head"], "blade": "pk_head", "does": {
+		"light": {"clip": "pk_light", "wind": 1, "swing": 2, "rec": 1, "live": [1, 2], "dmg": 25, "st": 15, "keeps guard": true},
+		"heavy": {"clip": "pk_heavy", "wind": 2, "swing": 3, "rec": 2, "live": [2, 3], "lunge": 3.0, "dmg": 50, "st": 30},
 	}},
 	"shortsword": {"name": "SHORTSWORD", "hands": 1, "key": "ss", "nodes": ["ss_hilt", "ss_blade"], "blade": "ss_blade", "does": {
 		"light": {"clip": "ss_light", "wind": 1, "swing": 2, "rec": 1, "live": [1, 2], "dmg": 18, "st": 12},
