@@ -108,6 +108,9 @@ const BLEED := {"hits": 2, "beats": 8, "move": 1, "attack": 2}
 const DUEL_UNITS := {
 	"hero": {"label": "HERO", "hp": 200, "body": [[0.0, 4.0]], "art": "res://art/hero.rig.json", "scale": 1.0},
 	"knight": {"label": "KNIGHT", "hp": 600, "body": [[0.0, 8.0]], "art": "res://art/knight.rig.json", "scale": 1.0},
+	"soldier": {"label": "SOLDIER", "hp": 60, "body": [[0.0, 4.5]], "art": "res://art/soldier.rig.json", "scale": 1.0},
+	"spearman": {"label": "SPEARMAN", "hp": 70, "body": [[0.0, 4.5]], "art": "res://art/spearman.rig.json", "scale": 1.0},
+	"archer": {"label": "ARCHER", "hp": 45, "body": [[0.0, 4.5]], "art": "res://art/archer.rig.json", "scale": 1.0},
 }
 ## Checks between one step and the next, so a fast blade can't skip past.
 const SWEEP_CHECKS := 6
@@ -230,7 +233,14 @@ const BURNS := {
 	"poison": {"dmg": 3, "steps": 12, "col": "#8e5c8e"},
 }
 
+## The enemies. ai: how it chooses (duel.gd _choose): "knight", "melee"
+## (walk in to `reach` px, centre to centre, and attack; back off if
+## nearer than `near`), "archer" (keep between `near` and `far` px and
+## shoot). attacks: the ones it picks from. turn: degrees a wind-up step
+## turns it toward the hero. poise / stagger / calm: as the knight's.
+## An attack's `after`: steps it waits once it's done.
 const KNIGHT := {
+	"ai": "knight", "attacks": ["sweep", "backhand", "overhead"],
 	"walk": 3.0,  # px a step
 	"reach": 40.0,  # px from him to the hero: he attacks from here
 	"turn": 25.0,  # degrees a wind-up step turns him toward the hero
@@ -245,3 +255,16 @@ const KNIGHT := {
 	"backhand": {"clip": "backhand", "wind": 0, "swing": 5, "rec": 3, "live": [1, 2, 3, 4, 5], "dmg": 40},
 	"overhead": {"clip": "overhead", "wind": 4, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 80},
 }
+## A short sword: quick, weak, staggers easily.
+const SOLDIER := {"ai": "melee", "attacks": ["slash"], "walk": 4.0, "reach": 16.0, "turn": 40.0,
+	"poise": 30, "stagger": 3, "calm": 6,
+	"slash": {"clip": "slash", "wind": 2, "swing": 3, "rec": 2, "live": [1, 2, 3], "dmg": 20, "after": 1}}
+## Keeps a bit of distance and thrusts: a longer reach than a sword.
+const SPEARMAN := {"ai": "melee", "attacks": ["thrust"], "walk": 3.5, "reach": 26.0, "near": 18.0, "turn": 30.0,
+	"poise": 40, "stagger": 3, "calm": 6,
+	"thrust": {"clip": "thrust", "wind": 2, "swing": 2, "rec": 2, "live": [1, 2], "lunge": 2.0, "dmg": 25, "after": 1}}
+## Keeps away and shoots arrows (Acts.SHOTS).
+const ARCHER := {"ai": "archer", "attacks": ["shoot"], "walk": 3.5, "near": 50.0, "far": 140.0, "turn": 30.0,
+	"poise": 20, "stagger": 3, "calm": 6,
+	"shoot": {"clip": "shoot", "wind": 4, "swing": 1, "rec": 1, "shot": "arrow", "after": 3}}
+const FOES := {"knight": KNIGHT, "soldier": SOLDIER, "spearman": SPEARMAN, "archer": ARCHER}

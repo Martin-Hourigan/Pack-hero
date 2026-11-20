@@ -208,6 +208,28 @@ TUNING (2026-11-20, Martin)
   quarterstaff's bow and the spear staff too). The draw / raise is spread
   over the longer wind-up.
 
+ROOMS AND ENEMIES (2026-11-20)
+DECIDED (Martin: "go with your picks"): a short run of rooms (4), the knight
+in the last; doorways always open; pillars in some rooms; enemies stay in
+their room; dying = back to room 1, no refills between rooms (a rest spot
+later). Basic enemies: SOLDIER (short sword, quick, weak, staggers easily),
+SPEARMAN (keeps a bit of distance, thrusts), ARCHER (keeps away, shoots);
+2, 3, 4 a room. Enemies can't hurt each other.
+Also wanted (Martin): line of sight, panning around, ranged attack limits
+(a GREATBOW reaching the farthest). Proposed, waiting on his OK: rooms up
+to 2x the screen, camera follows, drag to pan; see only what the hero can
+see (walls/pillars hide), enemies notice you when they see you; lock only
+what you can see; ranges staff 100, crossbow 120, bow 160, greatbow 240 px;
+greatbow two-handed ARROW + HEAVY SHOT, longer wind-up, harder hits.
+BUILT (step 1-2): any number of enemies in a fight (Acts.FOES), each
+choosing its own attacks; the hero's swing hits every enemy it sweeps; a
+walk stops when any enemy starts an attack; won when all are dead. Their
+swings show as ghosts like the knight's; the smaller ones get a small
+health bar over them once hurt. Puppets by scratchpad make_foes.py.
+PLACEHOLDER: all their numbers (Acts.SOLDIER / SPEARMAN / ARCHER), looks,
+and AI; an archer waits 3 steps after each shot; enemies always know where
+you are (until line of sight). Dev: --foes=soldier,spearman,archer.
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 

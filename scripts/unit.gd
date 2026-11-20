@@ -26,6 +26,8 @@ var col := Color.WHITE
 var pose := {}
 var was := {}  # {pos, ang, pose}
 var burns := {}  # Acts.BURNS kind -> steps left
+var calm := 0  # steps since it was last hit (its poise comes back)
+var last := ""  # its last attack
 
 
 func _init(k: String, at: Vector2, a: float) -> void:

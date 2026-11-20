@@ -29,6 +29,7 @@ extends Node2D
 ## on. BLOCK, TWO HANDS and ONE HAND aren't in the menus: they're these.
 ## Dev flags (after --): --duel (straight in), --seed=N, --at=x,y (the hero
 ## there), --knight=sweep / backhand / overhead (he starts it now),
+## --foes=soldier,spearman,archer (them instead of the knight),
 ## --steps=N (play N steps first), --tool=right:light (picked) with
 ## --mouse=x,y (aimed there), --touch, --blocking (GUARD on), --lock (LOCK on), --menu=right (that hand's menu open), --gear=left,right or
 ## left,left2,right,right2 (e.g. crossbow,staff; _ for a space; the slots
@@ -100,11 +101,11 @@ func _ready() -> void:
 			duel.knight.ang = (duel.hero.pos - duel.knight.pos).angle()
 			duel.start_attack(String(flags["knight"]))
 		if flags.has("dohero"):
-			duel.plan(String(flags["dohero"]).replace("_", " "), duel.knight.pos)
+			duel.plan(String(flags["dohero"]).replace("_", " "), duel.foes[0].pos)
 		if flags.has("blocking"):
 			duel.toggle_guard()
 		if flags.has("lock"):
-			duel.target = duel.knight
+			duel.target = duel.foes[0]
 		picking = flags.has("picking")
 		for i in int(flags.get("steps", "0")):
 			if duel.hero.idle():
@@ -114,8 +115,19 @@ func _ready() -> void:
 		menu = String(flags.get("menu", ""))
 
 
+## The enemies to fight: the knight, or --foes' in a column on the right.
+func room() -> Array:
+	if not flags.has("foes"):
+		return Duel.KNIGHT_ROOM
+	var out := []
+	var ks := String(flags["foes"]).split(",")
+	for i in ks.size():
+		out.append({"k": ks[i], "at": Vector2(280 + 30 * (i % 2), 40 + 110.0 * (i + 0.5) / ks.size()), "a": PI})
+	return out
+
+
 func begin() -> void:
-	duel = Duel.new(int(flags.get("seed", "0")), gear)
+	duel = Duel.new(int(flags.get("seed", "0")), gear, room())
 	mode = "duel"
 	tool = "move"
 	u = 1.0

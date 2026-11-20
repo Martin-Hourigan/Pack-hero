@@ -18,6 +18,7 @@ func run() -> int:
 	_blade_hits()
 	_hero()
 	_bodies()
+	_foes()
 	_whole()
 	return fails
 
@@ -268,6 +269,90 @@ func _bodies() -> void:
 	for i in 12:
 		d.step()
 	check(d.hero.pos.distance_to(d.knight.pos) >= Duel._radius(d.hero) + Duel._radius(d.knight) - 0.01, "his lunge pushes the hero aside")
+
+
+## A room of these enemies (Acts.FOES), lined up at x 280.
+func _room(ks: Array, gear := {"left": ["kite shield", "staff"], "right": ["longsword", "claymore"]}) -> Duel:
+	var room := []
+	for i in ks.size():
+		room.append({"k": ks[i], "at": Vector2(280, 40 + 40 * i), "a": PI})
+	return Duel.new(1, gear, room)
+
+
+func _foes() -> void:
+	for k in ["soldier", "spearman", "archer"]:
+		var path := String(Acts.DUEL_UNITS[k]["art"])
+		check(not RigArt.get_rig(path).is_empty(), "the %s puppet loads" % k)
+		for a in Acts.FOES[k]["attacks"]:
+			var at: Dictionary = Acts.FOES[k][a]
+			check(RigArt.frames(path, String(at["clip"])) == int(at["wind"]) + int(at["swing"]) + int(at["rec"]) + 1, "the %s's %s clip has a frame a step" % [k, a])
+	# A soldier walks in and cuts the hero (standing still).
+	var d := _room(["soldier"])
+	d.hero.pos = Vector2(200, 40)
+	var hp := d.hero.hp
+	for i in 60:
+		if d.hero.idle():
+			_still(d, 1)
+		d.step()
+	check(d.hero.hp < hp, "a soldier walks in and cuts you", str(hp - d.hero.hp))
+	# A spearman's thrust reaches; an archer keeps away and shoots.
+	for k in ["spearman", "archer"]:
+		d = _room([k])
+		d.hero.pos = Vector2(200, 40)
+		hp = d.hero.hp
+		for i in 80:
+			if d.hero.idle():
+				_still(d, 1)
+			d.step()
+		check(d.hero.hp < hp, "a %s hurts you" % k, str(hp - d.hero.hp))
+	d = _room(["archer"])
+	d.hero.pos = Vector2(260, 40)
+	for i in 6:
+		_still(d, 1)
+		d.step()
+	check(d.foes[0].pos.distance_to(d.hero.pos) > 20.0 + 6.0 * 0.5, "an archer backs away from you")
+	# Enemies don't hurt each other: an archer shooting past a soldier.
+	d = _room(["soldier", "archer"])
+	d.foes[0].pos = Vector2(240, 40)
+	d.foes[1].pos = Vector2(300, 40)
+	d.hero.pos = Vector2(160, 40)
+	for i in 40:
+		_still(d, 1)
+		d.step()
+	check(d.foes[0].hp == d.foes[0].max_hp, "an enemy's arrow doesn't hurt another enemy")
+	# One sweep hits two soldiers.
+	d = _room(["soldier", "soldier"], {"left": ["kite shield", "staff"], "right": ["claymore", "longsword"]})
+	d.hero.pos = Vector2(200, 92)
+	d.foes[0].pos = Vector2(218, 84)
+	d.foes[1].pos = Vector2(218, 100)
+	for f in d.foes:
+		_still_foe(f, 30)
+	d.plan("right:light", Vector2(230, 92))
+	_until_free(d)
+	check(d.foes.all(func(f): return f.hp < f.max_hp), "one sweep hits both soldiers", str(d.foes.map(func(f): return f.hp)))
+	# Enough damage staggers a soldier; all dead: won.
+	d = _room(["soldier"])
+	d.hero.pos = Vector2(262, 40)
+	d.foes[0].taken = int(Acts.SOLDIER["poise"]) - 1
+	_still_foe(d.foes[0], 30)
+	d.plan("right:light", d.foes[0].pos)
+	for i in 8:
+		d.step()
+		if d.foes[0].hp < d.foes[0].max_hp:
+			break
+	check(String(d.foes[0].cur.get("k", "")) == "stagger", "a soldier staggers")
+	d.foes[0].hp = 1
+	_still_foe(d.foes[0], 30)
+	d.hero.cur = {}
+	d.plan("right:light", d.foes[0].pos)
+	_until_free(d)
+	check(d.result == "win", "every enemy dead: won", d.result)
+
+
+func _still_foe(f: Unit, n: int) -> void:
+	f.cur = {"k": "wait", "label": "", "b": 0, "struck": [], "steps": []}
+	for i in n:
+		f.cur["steps"].append({"ph": "wait"})
 
 
 ## Whole fights, the hero pressing light attacks: they end.

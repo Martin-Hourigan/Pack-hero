@@ -51,12 +51,17 @@ func _arena() -> void:
 			draw_rect(Rect2(x + ((y / 16) % 2) * 8, y, 1, 1), Pal.DARK)
 
 
-## The knight's swing still to come: the ground each hitting step sweeps
+## Every enemy's swing still to come: the ground each hitting step sweeps
 ## (the next one brightest), the blade where each step leaves it, and on
 ## each hitting step the steps left.
 func _ghosts(d: Duel) -> void:
-	var k := d.knight
-	if k.idle() or String(k.cur["k"]) in ["walk", "stagger"] or main.u < 1.0:
+	for k in d.foes:
+		if k.alive():
+			_ghost(d, k)
+
+
+func _ghost(d: Duel, k: Unit) -> void:
+	if k.idle() or String(k.cur["k"]) in ["walk", "stagger"] or main.u < 1.0 or not Duel._threat(k.cur):
 		return
 	var tr := d.trace(k)
 	var first := -1
@@ -198,7 +203,15 @@ func _bars(d: Duel) -> void:
 	var fx := _wig(d, "flasks")
 	for i in int(Acts.HERO["flasks"]):
 		draw_rect(Rect2(110 + i * 5 + fx, 3, 3, 4), Pal.DANGER if i < d.flasks else Pal.DARK)
+	for f in d.foes:
+		if f != d.knight and f.alive() and f.hp < f.max_hp:
+			# A small bar over the smaller enemies, once hurt.
+			var at := _px(f.pos + Vector2(-5, -11))
+			draw_rect(Rect2(at, Vector2(10, 1)), Pal.DARK)
+			draw_rect(Rect2(at, Vector2(round(10.0 * f.hp / f.max_hp), 1)), Pal.DIM)
 	var k := d.knight
+	if k == null:
+		return
 	draw_rect(Rect2(280, 3, 100, 4), Pal.DARK)
 	draw_rect(Rect2(280, 3, round(100.0 * maxf(k.hp, 0) / k.max_hp), 4), Pal.DIM)
 	# Poise: how near he is to staggering.
@@ -279,13 +292,16 @@ func _shots(d: Duel) -> void:
 
 
 ## Where a shot would go from the hero aimed `ang`: a mark where it'll be
-## each step, up to where it'd reach the knight or its end.
+## each step, up to where it'd reach an enemy or its end.
 func _shot_path(d: Duel, k: String, ang: float, wind: int) -> void:
 	var sp: Dictionary = Acts.SHOTS[k]
 	var f := Vector2.from_angle(ang)
 	var p := d.shot_from(d.hero, ang)
 	var col := Pal.INK.darkened(0.45)
-	var k_at: Array = d.knight.body()
+	var k_at: Array = []
+	for e in d.foes:
+		if e.alive():
+			k_at.append_array(e.body())
 	for i in int(sp["steps"]):
 		var q := p + f * float(sp["speed"])
 		var hit := false

@@ -1,0 +1,927 @@
+{
+	"format": "puppet-rig",
+	"version": 1,
+	"sheet": "",
+	"sheet_size": [
+		64,
+		64
+	],
+	"shape_res": 1,
+	"parts": {
+		"torso": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							0,
+							0
+						]
+					],
+					"rx": 3,
+					"ry": 4.5,
+					"color": "#4a4a5e"
+				},
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							-0.5,
+							0
+						]
+					],
+					"rx": 2,
+					"ry": 3,
+					"color": "#5c5c72"
+				}
+			],
+			"group": "Body"
+		},
+		"helm": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							0,
+							0
+						]
+					],
+					"rx": 2.3,
+					"ry": 2.1,
+					"color": "#b39a72"
+				}
+			],
+			"group": "Body"
+		},
+		"upper": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							0
+						],
+						[
+							3.5,
+							0
+						]
+					],
+					"w": 2,
+					"color": "#4a4a5e"
+				}
+			],
+			"group": "Body"
+		},
+		"fore": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							0
+						],
+						[
+							3.5,
+							0
+						]
+					],
+					"w": 1.5,
+					"color": "#5c5c72"
+				},
+				{
+					"type": "ellipse",
+					"pts": [
+						[
+							3.5,
+							0
+						]
+					],
+					"rx": 1.0,
+					"ry": 1.0,
+					"color": "#b39a72"
+				}
+			],
+			"group": "Body"
+		},
+		"bow": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							-7
+						],
+						[
+							1.5,
+							-4
+						]
+					],
+					"w": 1,
+					"color": "#7a5a3e"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							1.5,
+							-4
+						],
+						[
+							2.2,
+							0
+						]
+					],
+					"w": 1,
+					"color": "#7a5a3e"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							2.2,
+							0
+						],
+						[
+							1.5,
+							4
+						]
+					],
+					"w": 1,
+					"color": "#7a5a3e"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							1.5,
+							4
+						],
+						[
+							0,
+							7
+						]
+					],
+					"w": 1,
+					"color": "#7a5a3e"
+				}
+			],
+			"group": "Weapon"
+		},
+		"arrow": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							0
+						],
+						[
+							9,
+							0
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				},
+				{
+					"type": "poly",
+					"pts": [
+						[
+							9,
+							-1
+						],
+						[
+							11,
+							0
+						],
+						[
+							9,
+							1
+						]
+					],
+					"color": "#8a8478"
+				}
+			],
+			"group": "Weapon"
+		},
+		"string0": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							-7
+						],
+						[
+							0,
+							0
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							0
+						],
+						[
+							0,
+							7
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				}
+			],
+			"group": "Weapon"
+		},
+		"string1": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							-7
+						],
+						[
+							-1,
+							0
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							-1,
+							0
+						],
+						[
+							0,
+							7
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				}
+			],
+			"group": "Weapon"
+		},
+		"string2": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							-7
+						],
+						[
+							-2,
+							0
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							-2,
+							0
+						],
+						[
+							0,
+							7
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				}
+			],
+			"group": "Weapon"
+		},
+		"string3": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							-7
+						],
+						[
+							-3,
+							0
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							-3,
+							0
+						],
+						[
+							0,
+							7
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				}
+			],
+			"group": "Weapon"
+		},
+		"string4": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							-7
+						],
+						[
+							-4,
+							0
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							-4,
+							0
+						],
+						[
+							0,
+							7
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				}
+			],
+			"group": "Weapon"
+		},
+		"string5": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							-7
+						],
+						[
+							-5,
+							0
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							-5,
+							0
+						],
+						[
+							0,
+							7
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				}
+			],
+			"group": "Weapon"
+		},
+		"string6": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							-7
+						],
+						[
+							-6,
+							0
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							-6,
+							0
+						],
+						[
+							0,
+							7
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				}
+			],
+			"group": "Weapon"
+		},
+		"string7": {
+			"rect": [
+				0,
+				0,
+				8,
+				8
+			],
+			"pivot": [
+				0,
+				0
+			],
+			"flip": false,
+			"shapes": [
+				{
+					"type": "line",
+					"pts": [
+						[
+							0,
+							-7
+						],
+						[
+							-7,
+							0
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				},
+				{
+					"type": "line",
+					"pts": [
+						[
+							-7,
+							0
+						],
+						[
+							0,
+							7
+						]
+					],
+					"w": 1,
+					"color": "#c9c2b0"
+				}
+			],
+			"group": "Weapon"
+		}
+	},
+	"nodes": [
+		{
+			"name": "root",
+			"parent": null,
+			"part": "",
+			"pos": [
+				0.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 0
+		},
+		{
+			"name": "torso",
+			"parent": "root",
+			"part": "torso",
+			"pos": [
+				0.0,
+				0.0
+			],
+			"rot": 0,
+			"vis": true,
+			"z": 1
+		},
+		{
+			"name": "arm_r",
+			"parent": "torso",
+			"part": "upper",
+			"pos": [
+				0.5,
+				3.5
+			],
+			"rot": -31.95,
+			"vis": true,
+			"z": 2
+		},
+		{
+			"name": "fore_r",
+			"parent": "arm_r",
+			"part": "fore",
+			"pos": [
+				3.5,
+				0.0
+			],
+			"rot": -32.12,
+			"vis": true,
+			"z": 3
+		},
+		{
+			"name": "arm_l",
+			"parent": "torso",
+			"part": "upper",
+			"pos": [
+				0.5,
+				-3.5
+			],
+			"rot": -21.33,
+			"vis": true,
+			"z": 2
+		},
+		{
+			"name": "fore_l",
+			"parent": "arm_l",
+			"part": "fore",
+			"pos": [
+				3.5,
+				0.0
+			],
+			"rot": 90.58,
+			"vis": true,
+			"z": 3
+		},
+		{
+			"name": "head",
+			"parent": "root",
+			"part": "helm",
+			"pos": [
+				0.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 6
+		},
+		{
+			"name": "hand_r",
+			"parent": "torso",
+			"part": "",
+			"pos": [
+				0.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 0
+		},
+		{
+			"name": "hand_l",
+			"parent": "torso",
+			"part": "",
+			"pos": [
+				5.0,
+				-1.5
+			],
+			"rot": 0,
+			"vis": true,
+			"z": 0
+		},
+		{
+			"name": "bow",
+			"parent": "hand_l",
+			"part": "bow",
+			"pos": [
+				0.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 5
+		},
+		{
+			"name": "bow_string",
+			"parent": "bow",
+			"part": "string0",
+			"pos": [
+				0.0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 5
+		},
+		{
+			"name": "arrow",
+			"parent": "bow",
+			"part": "arrow",
+			"pos": [
+				0,
+				0.0
+			],
+			"rot": 0.0,
+			"vis": true,
+			"z": 5
+		}
+	],
+	"clips": {
+		"shoot": {
+			"fps": 8,
+			"frames": 7,
+			"loop": false,
+			"step": false,
+			"tracks": {
+				"torso": {
+					"rot": {
+						"0": 0,
+						"1": -4,
+						"2": -8,
+						"3": -12,
+						"4": -15,
+						"5": -15,
+						"6": 0
+					}
+				},
+				"hand_l": {
+					"x": {
+						"0": 5.0,
+						"1": 5.09,
+						"2": 5.16,
+						"3": 5.2,
+						"4": 5.22,
+						"5": 5.22,
+						"6": 5.0
+					},
+					"y": {
+						"0": -1.5,
+						"1": -1.15,
+						"2": -0.79,
+						"3": -0.43,
+						"4": -0.15,
+						"5": -0.15,
+						"6": -1.5
+					},
+					"rot": {
+						"0": 0,
+						"1": 4,
+						"2": 8,
+						"3": 12,
+						"4": 15,
+						"5": 15,
+						"6": 0
+					}
+				},
+				"arm_l": {
+					"rot": {
+						"0": -21.33,
+						"1": -15.39,
+						"2": -9.45,
+						"3": -3.48,
+						"4": 1.05,
+						"5": 1.05,
+						"6": -21.33
+					}
+				},
+				"fore_l": {
+					"rot": {
+						"0": 90.58,
+						"1": 85.03,
+						"2": 79.27,
+						"3": 73.27,
+						"4": 68.58,
+						"5": 68.58,
+						"6": 90.58
+					}
+				},
+				"arm_r": {
+					"rot": {
+						"0": -31.95,
+						"1": -21.04,
+						"2": -25.85,
+						"3": -40.57,
+						"4": -142.25,
+						"5": -6.25,
+						"6": -31.95
+					}
+				},
+				"fore_r": {
+					"rot": {
+						"0": -32.12,
+						"1": -71.76,
+						"2": -88.81,
+						"3": -91.77,
+						"4": 81.12,
+						"5": -63.02,
+						"6": -32.12
+					}
+				},
+				"bow_string": {
+					"part": {
+						"0": "string0",
+						"1": "string2",
+						"2": "string3",
+						"3": "string4",
+						"4": "string6",
+						"5": "string0",
+						"6": "string0"
+					}
+				},
+				"arrow": {
+					"x": {
+						"0": 0.0,
+						"1": -1.5,
+						"2": -3.0,
+						"3": -4.5,
+						"4": -6.0,
+						"5": 0.0,
+						"6": 0.0
+					},
+					"y": {
+						"0": 0.0,
+						"1": 0.0,
+						"2": 0.0,
+						"3": 0.0,
+						"4": 0.0,
+						"5": 0.0,
+						"6": 0.0
+					},
+					"vis": {
+						"0": true,
+						"1": true,
+						"2": true,
+						"3": true,
+						"4": true,
+						"5": false,
+						"6": true
+					}
+				}
+			}
+		}
+	}
+}

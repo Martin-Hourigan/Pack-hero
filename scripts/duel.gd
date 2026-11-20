@@ -1,6 +1,7 @@
 class_name Duel
 extends RefCounted
-## The hero against the big knight, with no drawing or input so tests can
+## The hero against the enemies of a room (Acts.FOES: the big knight,
+## soldiers, spearmen, archers), with no drawing or input so tests can
 ## run it. Time goes in steps, everyone together. Everyone is a puppet
 ## (RigArt): an attack plays a clip, one frame a step, and the blade hits
 ## wherever the puppet's blade really is, swept from where it was at the
@@ -27,13 +28,13 @@ extends RefCounted
 ## mirror (the clip is played in the left hand)}.
 
 var hero: Unit
-var knight: Unit
+var knight: Unit  # the knight, if he's here (null if not)
+var foes: Array = []  # every enemy (the knight too)
 var units: Array = []
 var step_n := 0
 var result := ""  # "", "win", "lose"
 var stamina := 0
 var flasks := 0
-var last_attack := ""  # the knight's last attack
 var rng := RandomNumberGenerator.new()
 var gear := {}  # hand -> [Acts.ITEMS key, Acts.ITEMS key]: its two slots
 var up := {"left": 0, "right": 0}  # the slot each hand holds
@@ -42,7 +43,6 @@ var casts := {}  # "item:thing" -> casts left (full until used)
 var loaded := {}  # slot ("left0") -> its crossbow is loaded (it is until shot)
 var shots: Array = []  # {k, p, from, ang, left, by}
 var gone: Array = []  # shots that ended this step (drawn for one more step)
-var calm := 0  # steps since the knight was last hit
 var target: Unit = null  # LOCK: the enemy locked on to (null = none)
 var guard := false  # GUARD: the hero's block is up
 
@@ -53,14 +53,19 @@ var shake_amt := 0.0
 var wiggle := {}  # HUD thing -> seconds left (a stamina bar that's too low)
 
 
-func _init(seed_ := 0, gear_ := Acts.HANDS) -> void:
+## The knight alone (the duel's room, until there are rooms).
+const KNIGHT_ROOM := [{"k": "knight", "at": Vector2(270, 92), "a": PI}]
+
+
+## room: the enemies, [{k (Acts.FOES), at, a}].
+func _init(seed_ := 0, gear_ := Acts.HANDS, room := KNIGHT_ROOM) -> void:
 	rng.seed = seed_ if seed_ != 0 else int(Time.get_ticks_usec())
 	gear = {"left": Array(gear_["left"]).duplicate(), "right": Array(gear_["right"]).duplicate()}
 	_settle("right")
 	hero = _add("hero", Vector2(110, 92), 0.0)
-	knight = _add("knight", Vector2(270, 92), PI)
-	knight.side = "enemy"
 	hero.side = "hero"
+	for f in room:
+		add_foe(String(f["k"]), f["at"], float(f.get("a", PI)))
 	stamina = int(Acts.HERO["stamina"])
 	flasks = int(Acts.HERO["flasks"])
 
@@ -71,6 +76,19 @@ func _add(k: String, at: Vector2, a: float) -> Unit:
 	u.pose = rest(u)
 	units.append(u)
 	return u
+
+
+func add_foe(k: String, at: Vector2, a: float) -> Unit:
+	var u := _add(k, at, a)
+	u.side = "enemy"
+	foes.append(u)
+	if k == "knight" and knight == null:
+		knight = u
+	return u
+
+
+static func foe_data(u: Unit) -> Dictionary:
+	return Acts.FOES[u.kind]
 
 
 func art(u: Unit) -> String:
@@ -341,11 +359,13 @@ static func attack_steps(a: Dictionary) -> Array:
 				st["live"] = true
 				st["dmg"] = int(a["dmg"])
 		steps.append(st)
+	for i in int(a.get("after", 0)):
+		steps.append({"ph": "wait"})
 	return steps
 
 
 func _act(k: String, steps: Array) -> Dictionary:
-	return {"k": k, "label": k.to_upper(), "steps": steps, "b": 0, "hit": false}
+	return {"k": k, "label": k.to_upper(), "steps": steps, "b": 0, "struck": []}
 
 
 ## What the hero would do with tool k aimed at `at` ({} = can't).
@@ -452,42 +472,87 @@ func plan(k: String, at: Vector2) -> bool:
 	return true
 
 
-# ---------------------------------------------------------------- the knight
+# ---------------------------------------------------------------- the enemies
 
-func _choose() -> void:
-	var u := knight
+func _choose(u: Unit) -> void:
+	match String(foe_data(u)["ai"]):
+		"knight":
+			_choose_knight(u)
+		"melee":
+			_choose_melee(u)
+		"archer":
+			_choose_archer(u)
+
+
+func _choose_knight(u: Unit) -> void:
 	var d := u.pos.distance_to(hero.pos)
 	var aim := (hero.pos - u.pos).angle()
 	if d <= float(Acts.KNIGHT["reach"]):
 		var off := rad_to_deg(absf(angle_difference(u.ang, aim)))
 		var k := "sweep"
-		if last_attack == "sweep" and rng.randf() < float(Acts.KNIGHT["backhand_odds"]):
+		if u.last == "sweep" and rng.randf() < float(Acts.KNIGHT["backhand_odds"]):
 			k = "backhand"
 		elif off < float(Acts.KNIGHT["overhead_cone"]) and d > float(Acts.KNIGHT["overhead_near"]):
 			k = "overhead"
-		start_attack(k)
+		start_attack(k, u)
 		return
-	last_attack = ""
-	var go := minf(float(Acts.KNIGHT["walk"]), maxf(d - float(Acts.KNIGHT["reach"]) + 1.0, 0.0))
-	u.cur = _act("walk", [{"ph": "move", "to": u.pos.move_toward(hero.pos, go), "face": aim}])
+	u.last = ""
+	_walk_to(u, d - float(Acts.KNIGHT["reach"]) + 1.0)
 
 
-## The knight staggers: what he was doing stops for Acts.KNIGHT's
+## In to its reach and attack; nearer than `near`, back off a step.
+func _choose_melee(u: Unit) -> void:
+	var f := foe_data(u)
+	var d := u.pos.distance_to(hero.pos)
+	if f.has("near") and d < float(f["near"]):
+		_walk_to(u, -float(f["walk"]))
+	elif d <= float(f["reach"]):
+		start_attack(String(f["attacks"][rng.randi() % f["attacks"].size()]), u)
+	else:
+		_walk_to(u, d - float(f["reach"]) + 1.0)
+
+
+## Between `near` and `far` of the hero: shoot; else get there.
+func _choose_archer(u: Unit) -> void:
+	var f := foe_data(u)
+	var d := u.pos.distance_to(hero.pos)
+	if d < float(f["near"]):
+		_walk_to(u, -float(f["walk"]))
+	elif d > float(f["far"]):
+		_walk_to(u, d - float(f["far"]) + 1.0)
+	else:
+		start_attack(String(f["attacks"][0]), u)
+
+
+## u walks a step toward the hero, at most `go` px (away, if negative),
+## facing him.
+func _walk_to(u: Unit, go: float) -> void:
+	var aim := (hero.pos - u.pos).angle()
+	var w := float(foe_data(u)["walk"])
+	u.cur = _act("walk", [{"ph": "move", "to": u.pos + Vector2.from_angle(aim) * clampf(go, -w, w), "face": aim}])
+
+
+## u staggers (the knight, if not said): what it was doing stops for its
 ## `stagger` steps.
-func stagger() -> void:
+func stagger(u: Unit = null) -> void:
+	if u == null:
+		u = knight
 	var steps := []
-	for i in int(Acts.KNIGHT["stagger"]):
+	for i in int(foe_data(u)["stagger"]):
 		steps.append({"ph": "stagger"})
-	knight.cur = _act("stagger", steps)
-	knight.cur["b"] = -1  # (counted up at the end of this step)
-	knight.taken = 0
-	last_attack = ""
-	shake_amt = maxf(shake_amt, 2.0)
+	u.cur = _act("stagger", steps)
+	u.cur["b"] = -1  # (counted up at the end of this step)
+	u.taken = 0
+	u.last = ""
+	shake_amt = maxf(shake_amt, 2.0 if u == knight else 1.0)
 
 
-func start_attack(k: String) -> void:
-	knight.cur = _act(k, attack_steps(Acts.KNIGHT[k]))
-	last_attack = k
+## u (the knight, if not said) starts its attack k.
+func start_attack(k: String, u: Unit = null) -> void:
+	if u == null:
+		u = knight
+	u.cur = _act(k, attack_steps(foe_data(u)[k]))
+	u.last = k
 
 
 # ---------------------------------------------------------------- steps
@@ -498,19 +563,28 @@ func step() -> void:
 		return
 	step_n += 1
 	gone = []
-	calm += 1
-	if calm >= int(Acts.KNIGHT["calm"]):
-		knight.taken = 0
 	for u in units:
 		u.was = {"pos": u.pos, "ang": u.ang, "pose": u.pose}
-	if knight.idle():
-		_choose()
+	var foe_starts := false
+	for u in foes:
+		if not u.alive():
+			continue
+		u.calm += 1
+		if u.calm >= int(foe_data(u)["calm"]):
+			u.taken = 0
+		if u.idle():
+			_choose(u)
+		if int(u.cur.get("b", 1)) == 0 and _threat(u.cur):
+			foe_starts = true
 	var walking := String(hero.cur.get("k", "")) == "move"
 	var resting := not String(current(hero).get("ph", "")) in ["wind", "act", "rec", "roll", "drink", "reload"]
-	var knight_starts := int(knight.cur.get("b", 1)) == 0 and _has_live(knight.cur)
 	for u in units:
-		_do(u)
+		if u.alive():
+			_do(u)
 	_keep_apart()
+	for u in foes:
+		if u.alive() and current(u).has("shoot"):
+			_shoot(String(current(u)["shoot"]), "", u)
 	var st_h := current(hero)
 	if st_h.has("shoot"):
 		_shoot(String(st_h["shoot"]), String(st_h.get("unload", "")))
@@ -521,17 +595,23 @@ func step() -> void:
 		if guard_spec().is_empty():
 			guard = false  # nothing left to block with
 		hero.pose = rest(hero)
-	# The blades.
+	# The blades: the hero's hits every enemy it sweeps over (each once a
+	# swing); an enemy's only the hero.
 	for u in units:
 		var st := current(u)
-		if st.get("live", false) and not u.cur.get("hit", false):
-			var v: Unit = knight if u == hero else hero
-			if current(v).get("safe", false):
+		if not u.alive() or not st.get("live", false):
+			continue
+		if not u.cur.has("struck"):
+			u.cur["struck"] = []
+		for v in (foes if u == hero else [hero]):
+			if not v.alive() or v in u.cur["struck"] or current(v).get("safe", false):
+				continue
+			if u != hero and not u.cur["struck"].is_empty():
 				continue
 			var at: Variant = sweep_contact(u, v)
 			if at == null:
 				continue
-			u.cur["hit"] = true
+			u.cur["struck"].append(v)
 			if blocks(v, at):
 				_blocked(at)
 				var through := roundi(int(st["dmg"]) * float(guarding(v).get("cut", 0.0)))
@@ -541,6 +621,9 @@ func step() -> void:
 				_hurt(v, u, int(st["dmg"]))
 	for u in units:
 		if u.idle():
+			continue
+		if not u.alive():
+			u.cur = {}
 			continue
 		var st := current(u)
 		if st.has("heal"):
@@ -554,14 +637,14 @@ func step() -> void:
 	if resting:
 		var back := int(Acts.HERO["guard_back" if guard else "stamina_back"])
 		stamina = mini(stamina + back, int(Acts.HERO["stamina"]))
-	# A walk stops when the knight starts an attack: you choose again.
-	if walking and knight_starts and String(hero.cur.get("k", "")) == "move":
+	# A walk stops when an enemy starts an attack: you choose again.
+	if walking and foe_starts and String(hero.cur.get("k", "")) == "move":
 		hero.cur = {}
 	if target != null and not target.alive():
 		target = null
 	if hero.hp <= 0:
 		result = "lose"
-	elif knight.hp <= 0:
+	elif foes.all(func(f): return not f.alive()):
 		result = "win"
 
 
@@ -572,9 +655,10 @@ func current(u: Unit) -> Dictionary:
 	return u.cur["steps"][mini(int(u.cur["b"]), u.cur["steps"].size() - 1)]
 
 
-static func _has_live(a: Dictionary) -> bool:
+## Whether action a hits or shoots.
+static func _threat(a: Dictionary) -> bool:
 	for st in a.get("steps", []):
-		if st.get("live", false):
+		if st.get("live", false) or st.has("shoot"):
 			return true
 	return false
 
@@ -586,9 +670,9 @@ func _do(u: Unit) -> void:
 	var st := current(u)
 	if st.has("face"):
 		u.ang = float(st["face"])
-	if st.get("track", false) and u == knight:
+	if st.get("track", false) and u != hero:
 		var aim := (hero.pos - u.pos).angle()
-		var most := deg_to_rad(float(Acts.KNIGHT["turn"]))
+		var most := deg_to_rad(float(foe_data(u)["turn"]))
 		u.ang += clampf(angle_difference(u.ang, aim), -most, most)
 	if st.has("to"):
 		_walk(u, st["to"])
@@ -599,8 +683,8 @@ func _do(u: Unit) -> void:
 	u.pose = pose_for(u, st, u.cur)
 
 
-## Moves u toward `to`, a pixel at a time, stopping at the arena's edge. The
-## hero stops at the knight; the knight pushes the hero aside (_keep_apart).
+## Moves u toward `to`, a pixel at a time, stopping at the arena's edge and
+## at other bodies; but the knight pushes the hero aside (_keep_apart).
 func _walk(u: Unit, to: Vector2) -> void:
 	var from := u.pos
 	var n := ceili(from.distance_to(to))
@@ -608,18 +692,17 @@ func _walk(u: Unit, to: Vector2) -> void:
 		var p := from.lerp(to, float(i) / n)
 		if not _in_arena(u, p):
 			return
-		if u == hero and knight.alive() and _overlap(p, knight.pos):
-			return
+		for v in units:
+			if v == u or not v.alive() or (u == knight and v == hero):
+				continue
+			if p.distance_to(v.pos) < _radius(u) + _radius(v) and p.distance_to(v.pos) < u.pos.distance_to(v.pos):
+				return
 		u.pos = p
 
 
 func _in_arena(u: Unit, p: Vector2) -> bool:
 	var r := float(u.data()["body"][0][1])
 	return Acts.ARENA.grow(-r).has_point(p)
-
-
-func _overlap(hp_: Vector2, kp: Vector2) -> bool:
-	return hp_.distance_to(kp) < _radius(hero) + _radius(knight)
 
 
 static func _radius(u: Unit) -> float:
@@ -629,6 +712,8 @@ static func _radius(u: Unit) -> float:
 ## The knight is the big one: a hero he walks or lunges into is pushed out
 ## of the way (and slides along the arena's edge).
 func _keep_apart() -> void:
+	if knight == null or not knight.alive():
+		return
 	var v := hero.pos - knight.pos
 	var over := _radius(hero) + _radius(knight) - v.length()
 	if over <= 0.0:
@@ -650,11 +735,11 @@ func _hurt(v: Unit, by: Unit, d: int) -> void:
 	_number(v.pos + Vector2(0, -12), str(d), Pal.DANGER if v == hero else Pal.INK)
 	_sparks(v.pos, 6, Pal.DANGER if v == hero else Pal.INK)
 	shake_amt = maxf(shake_amt, 2.0 if v == hero else 1.0)
-	if v == knight and v.alive():
-		calm = 0
+	if v != hero and v.alive():
+		v.calm = 0
 		v.taken += d
-		if v.taken >= int(Acts.KNIGHT["poise"]):
-			stagger()
+		if v.taken >= int(foe_data(v)["poise"]):
+			stagger(v)
 	if v == hero and v.alive():
 		# Knocked back, and what it was doing stops.
 		var way := (v.pos - by.pos).normalized()
@@ -794,10 +879,13 @@ func shot_from(u: Unit, ang: float, p := Vector2.INF) -> Vector2:
 	return (u.pos if p == Vector2.INF else p) + Vector2.from_angle(ang) * (_radius(u) + 2.0)
 
 
-## Shot k leaves; `unload`: the crossbow's slot it empties.
-func _shoot(k: String, unload: String) -> void:
-	shots.append({"k": k, "p": shot_from(hero, hero.ang), "from": shot_from(hero, hero.ang), "ang": hero.ang,
-		"left": int(Acts.SHOTS[k]["steps"]), "by": hero, "new": true})
+## Shot k leaves u (the hero, if not said); `unload`: the crossbow's slot
+## it empties.
+func _shoot(k: String, unload: String, u: Unit = null) -> void:
+	if u == null:
+		u = hero
+	shots.append({"k": k, "p": shot_from(u, u.ang), "from": shot_from(u, u.ang), "ang": u.ang,
+		"left": int(Acts.SHOTS[k]["steps"]), "by": u, "new": true})
 	if unload != "":
 		loaded[unload] = false
 		hero.pose = pose_for(hero, current(hero), hero.cur)
@@ -819,7 +907,7 @@ func _fly() -> void:
 			var t := float(k) / Acts.SWEEP_CHECKS
 			var q := a.lerp(b, t)
 			for v in units:
-				if v == s["by"] or not v.alive():
+				if v.side == s["by"].side or not v.alive():
 					continue
 				var vp: Vector2 = Vector2(v.was.get("pos", v.pos)).lerp(v.pos, t)
 				for c in v.body(vp, v.ang):
