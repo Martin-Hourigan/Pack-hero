@@ -292,7 +292,7 @@ func _shots(d: Duel) -> void:
 
 
 ## Where a shot would go from the hero aimed `ang`: a mark where it'll be
-## each step, up to where it'd reach an enemy or its end.
+## each step, up to where it'd reach an enemy or its range ends.
 func _shot_path(d: Duel, k: String, ang: float, wind: int) -> void:
 	var sp: Dictionary = Acts.SHOTS[k]
 	var f := Vector2.from_angle(ang)
@@ -302,8 +302,10 @@ func _shot_path(d: Duel, k: String, ang: float, wind: int) -> void:
 	for e in d.foes:
 		if e.alive():
 			k_at.append_array(e.body())
-	for i in int(sp["steps"]):
-		var q := p + f * float(sp["speed"])
+	var left := float(sp["range"])
+	for i in ceili(left / float(sp["speed"])):
+		var q := p + f * minf(float(sp["speed"]), left)
+		left -= float(sp["speed"])
 		var hit := false
 		for n in 12:
 			var x := p.lerp(q, (n + 1) / 12.0)

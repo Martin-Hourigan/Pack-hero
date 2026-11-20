@@ -19,6 +19,7 @@ func run() -> int:
 	_hero()
 	_bodies()
 	_foes()
+	_ranges()
 	_whole()
 	return fails
 
@@ -353,6 +354,30 @@ func _still_foe(f: Unit, n: int) -> void:
 	f.cur = {"k": "wait", "label": "", "b": 0, "struck": [], "steps": []}
 	for i in n:
 		f.cur["steps"].append({"ph": "wait"})
+
+
+## Shots go their range and no further; the greatbow's is the farthest.
+func _ranges() -> void:
+	var most := ""
+	for k in Acts.SHOTS:
+		if most == "" or float(Acts.SHOTS[k]["range"]) > float(Acts.SHOTS[most]["range"]):
+			most = k
+	check(most.contains("great"), "the greatbow reaches the farthest", most)
+	for k in ["arrow", "great arrow", "magic bolt"]:
+		var d := _room(["soldier"])  # (off the line, standing still)
+		_still_foe(d.foes[0], 60)
+		d.hero.pos = Vector2(20, 92)
+		d.hero.ang = 0.0
+		d._shoot(k, "")
+		var start: Vector2 = d.shots[0]["p"]
+		var far := 0.0
+		for i in 40:
+			_still(d, 1)
+			d.step()
+			if d.shots.is_empty():
+				break
+			far = Vector2(d.shots[0]["p"]).distance_to(start)
+		check(d.shots.is_empty() and far <= float(Acts.SHOTS[k]["range"]) + 0.01, "a %s goes its range, then it's gone" % k, str(far))
 
 
 ## Whole fights, the hero pressing light attacks: they end.

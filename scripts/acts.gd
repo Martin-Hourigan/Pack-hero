@@ -135,7 +135,7 @@ const HERO := {
 ## changes it); the first slot of each is held.
 const HANDS := {"left": ["kite shield", "staff"], "right": ["longsword", "claymore"]}
 ## The order the gear screen goes through.
-const GEAR := ["longsword", "kite shield", "crossbow", "staff", "claymore", "bow", "quarterstaff", "greatspear"]
+const GEAR := ["longsword", "kite shield", "crossbow", "staff", "claymore", "bow", "greatbow", "quarterstaff", "greatspear"]
 ## Steps it takes to SWAP a hand to its other item, take an item in TWO
 ## HANDS or back to ONE HAND, and TRANSFORM a trick weapon.
 const CHANGE := {"swap": 1, "two hands": 1, "one hand": 1, "transform": 1}
@@ -178,6 +178,11 @@ const ITEMS := {
 		"fire arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
 		"heavy shot": {"clip": "bow_heavy", "wind": 7, "swing": 1, "rec": 1, "shot": "heavy arrow", "st": 30},
 	}},
+	# The farthest reach: slower to draw, harder hits.
+	"greatbow": {"name": "GREATBOW", "hands": 2, "key": "gb", "nodes": ["gb", "gb_string", "gb_arrow"], "does": {
+		"arrow": {"clip": "gb_shot", "wind": 7, "swing": 1, "rec": 1, "shot": "great arrow", "st": 25},
+		"heavy shot": {"clip": "gb_heavy", "wind": 9, "swing": 1, "rec": 2, "shot": "heavy great arrow", "st": 40},
+	}},
 	"crossbow": {"name": "CROSSBOW", "hands": 1, "key": "xb", "nodes": ["xb", "xb_bolt"], "does": {
 		"bolt": {"clip": "xb_shot", "wind": 0, "swing": 1, "rec": 1, "shot": "bolt", "st": 10, "loaded": true},
 		"poison bolt": {"clip": "xb_shot", "wind": 0, "swing": 1, "rec": 1, "shot": "poison bolt", "st": 10, "loaded": true},
@@ -216,16 +221,20 @@ const ITEMS := {
 	}},
 }
 
-## What flies: speed (px a step), steps (before it's gone), r (px across the
-## middle), dmg, burn (BURNS entry put on what it hits), col.
+## What flies: speed (px a step), range (px it goes before it's gone), r
+## (px across the middle), dmg, burn (BURNS entry put on what it hits), col.
+## Ranges: staff spells 100, crossbow 120, bow 160, greatbow 240 (the
+## farthest).
 const SHOTS := {
-	"arrow": {"speed": 24.0, "steps": 10, "r": 1.0, "dmg": 25, "col": "#e8e2d0"},
-	"fire arrow": {"speed": 24.0, "steps": 10, "r": 1.0, "dmg": 20, "burn": "fire", "col": "#d9784a"},
-	"heavy arrow": {"speed": 32.0, "steps": 10, "r": 1.0, "dmg": 50, "col": "#e8e2d0"},
-	"bolt": {"speed": 28.0, "steps": 10, "r": 1.0, "dmg": 35, "col": "#c9c2b0"},
-	"poison bolt": {"speed": 28.0, "steps": 10, "r": 1.0, "dmg": 25, "burn": "poison", "col": "#8e5c8e"},
-	"magic bolt": {"speed": 14.0, "steps": 16, "r": 2.0, "dmg": 30, "col": "#a89bd0"},
-	"heavy magic bolt": {"speed": 10.0, "steps": 20, "r": 3.5, "dmg": 70, "col": "#a89bd0"},
+	"arrow": {"speed": 24.0, "range": 160.0, "r": 1.0, "dmg": 25, "col": "#e8e2d0"},
+	"fire arrow": {"speed": 24.0, "range": 160.0, "r": 1.0, "dmg": 20, "burn": "fire", "col": "#d9784a"},
+	"heavy arrow": {"speed": 32.0, "range": 160.0, "r": 1.0, "dmg": 50, "col": "#e8e2d0"},
+	"great arrow": {"speed": 30.0, "range": 240.0, "r": 1.0, "dmg": 40, "col": "#e8e2d0"},
+	"heavy great arrow": {"speed": 36.0, "range": 240.0, "r": 1.0, "dmg": 75, "col": "#e8e2d0"},
+	"bolt": {"speed": 28.0, "range": 120.0, "r": 1.0, "dmg": 35, "col": "#c9c2b0"},
+	"poison bolt": {"speed": 28.0, "range": 120.0, "r": 1.0, "dmg": 25, "burn": "poison", "col": "#8e5c8e"},
+	"magic bolt": {"speed": 14.0, "range": 100.0, "r": 2.0, "dmg": 30, "col": "#a89bd0"},
+	"heavy magic bolt": {"speed": 10.0, "range": 100.0, "r": 3.5, "dmg": 70, "col": "#a89bd0"},
 }
 ## Damage every step for so many steps (hit again: back to full).
 const BURNS := {

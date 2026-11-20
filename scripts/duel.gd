@@ -41,7 +41,7 @@ var up := {"left": 0, "right": 0}  # the slot each hand holds
 var grip := ""  # the hand whose item is held in both hands ("" = none)
 var casts := {}  # "item:thing" -> casts left (full until used)
 var loaded := {}  # slot ("left0") -> its crossbow is loaded (it is until shot)
-var shots: Array = []  # {k, p, from, ang, left, by}
+var shots: Array = []  # {k, p, from, ang, left (px it can still go), by}
 var gone: Array = []  # shots that ended this step (drawn for one more step)
 var target: Unit = null  # LOCK: the enemy locked on to (null = none)
 var guard := false  # GUARD: the hero's block is up
@@ -885,7 +885,7 @@ func _shoot(k: String, unload: String, u: Unit = null) -> void:
 	if u == null:
 		u = hero
 	shots.append({"k": k, "p": shot_from(u, u.ang), "from": shot_from(u, u.ang), "ang": u.ang,
-		"left": int(Acts.SHOTS[k]["steps"]), "by": u, "new": true})
+		"left": float(Acts.SHOTS[k]["range"]), "by": u, "new": true})
 	if unload != "":
 		loaded[unload] = false
 		hero.pose = pose_for(hero, current(hero), hero.cur)
@@ -898,7 +898,7 @@ func _fly() -> void:
 	for s in shots:
 		var sp: Dictionary = Acts.SHOTS[s["k"]]
 		var a: Vector2 = s["p"]
-		var b := a + Vector2.from_angle(float(s["ang"])) * float(sp["speed"])
+		var b := a + Vector2.from_angle(float(s["ang"])) * minf(float(sp["speed"]), float(s["left"]))
 		s["from"] = a
 		s["p"] = b
 		s.erase("new")
@@ -920,7 +920,7 @@ func _fly() -> void:
 				break
 			if not Acts.ARENA.has_point(q):
 				s["p"] = q
-				s["left"] = 0
+				s["left"] = 0.0
 				break
 		if hit != null:
 			_hurt(hit, s["by"], int(sp["dmg"]))
@@ -928,8 +928,8 @@ func _fly() -> void:
 				hit.burns[sp["burn"]] = int(Acts.BURNS[sp["burn"]]["steps"])
 			gone.append(s)
 			continue
-		s["left"] = int(s["left"]) - 1
-		if int(s["left"]) > 0:
+		s["left"] = float(s["left"]) - a.distance_to(b)
+		if float(s["left"]) > 0.01:
 			keep.append(s)
 		else:
 			gone.append(s)
