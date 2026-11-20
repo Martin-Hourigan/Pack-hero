@@ -1,7 +1,7 @@
 class_name DuelView
 extends Node2D
 ## Draws the world, moved by the camera (main.cam; main sets position):
-## the room (floor, pillars, walls), the fog (never seen: blank; seen
+## the map (floor, pillars, doors, walls), the fog (never seen: blank; seen
 ## before: greyed), the enemies' coming swings (a ghost of the blade at
 ## each step still to come, the ground its hitting steps sweep over, and
 ## the steps left on each), what the hero's tool would do where you aim,
@@ -16,6 +16,8 @@ const FLOOR := Color("#161514")
 
 var _fog_tex: ImageTexture
 var _fog_key := []  # what the fog texture was made from
+var _edges: Array = []  # the walls' edges: [Rect2, square x, square y]
+var _edges_of: Duel = null
 
 
 func _ready() -> void:
@@ -45,16 +47,24 @@ func _draw() -> void:
 	_guard(d)
 
 
-## The floor's dots and the pillars (the fog goes over them).
+## The floor's dots, the pillars and the closed doors (the fog goes over
+## them). The boss door is drawn in a dull red.
 func _room(d: Duel) -> void:
-	var a := d.area
-	draw_rect(a, FLOOR)
-	for x in range(int(a.position.x) + 8, int(a.end.x), 16):
-		for y in range(int(a.position.y) + 8, int(a.end.y), 16):
-			draw_rect(Rect2(x + ((y / 16) % 2) * 8, y, 1, 1), Pal.DARK)
+	for fl in d.floors:
+		var a: Rect2 = fl
+		draw_rect(a, FLOOR)
+		for x in range(int(a.position.x) + 8, int(a.end.x), 16):
+			for y in range(int(a.position.y) + 8, int(a.end.y), 16):
+				draw_rect(Rect2(x + ((y / 16) % 2) * 8, y, 1, 1), Pal.DARK)
 	for pl in d.pillars:
 		draw_rect(pl, Pal.DARK)
 		draw_rect(Rect2(pl).grow(-0.5), Pal.DIM, false)
+	for dr in d.doors:
+		if dr["open"]:
+			continue
+		var r: Rect2 = dr["rect"]
+		draw_rect(r, Pal.DANGER_DIM if dr["boss"] else Pal.DARK)
+		draw_rect(r.grow(-0.5), Pal.DANGER if dr["boss"] else Pal.DIM, false)
 
 
 ## Never seen: blank. Seen before but not now: greyed.
@@ -75,25 +85,28 @@ func _fog(d: Duel) -> void:
 	draw_texture_rect(_fog_tex, Rect2(d.area.position, Vector2(d.fog_size) * Acts.FOG), false)
 
 
-## The room's walls, a square at a time, as seen as the squares inside
-## them; the doorway is a gap.
+## The walls: a line along every edge between wall and floor, as seen as
+## the wall square behind it.
 func _walls(d: Duel) -> void:
-	var a := d.area
-	var f := float(Acts.FOG)
-	var n := d.fog_size
-	for x in n.x:
-		for e in [[0, a.position.y - 1.0], [n.y - 1, a.end.y]]:
-			var c := _wall_col(d.fog_at(x, e[0]))
-			if c.a > 0.0:
-				draw_rect(Rect2(a.position.x + x * f, e[1], f, 1), c)
-	for y in n.y:
-		var yy := a.position.y + y * f
-		for e in [[0, a.position.x - 1.0], [n.x - 1, a.end.x]]:
-			if e[0] == n.x - 1 and not d.door.is_empty() and yy + f > float(d.door[0]) and yy < float(d.door[1]):
-				continue  # the doorway
-			var c := _wall_col(d.fog_at(e[0], y))
-			if c.a > 0.0:
-				draw_rect(Rect2(e[1], yy, 1, f), c)
+	if _edges_of != d:
+		_edges_of = d
+		_edges = []
+		var f := float(Acts.FOG)
+		var n := d.fog_size
+		for y in n.y:
+			for x in n.x:
+				if d.solid[y * n.x + x] != Duel.WALL:
+					continue
+				var o := d.area.position + Vector2(x, y) * f
+				for e in [[Vector2i(1, 0), Rect2(o.x + f - 1, o.y, 1, f)], [Vector2i(-1, 0), Rect2(o.x, o.y, 1, f)],
+						[Vector2i(0, 1), Rect2(o.x, o.y + f - 1, f, 1)], [Vector2i(0, -1), Rect2(o.x, o.y, f, 1)]]:
+					var q: Vector2i = Vector2i(x, y) + e[0]
+					if q.x >= 0 and q.y >= 0 and q.x < n.x and q.y < n.y and d.solid[q.y * n.x + q.x] != Duel.WALL:
+						_edges.append([e[1], x, y])
+	for e in _edges:
+		var c := _wall_col(d.fog_at(e[1], e[2]))
+		if c.a > 0.0:
+			draw_rect(e[0], c)
 
 
 func _wall_col(fog: int) -> Color:
@@ -182,7 +195,10 @@ func _preview(d: Duel) -> void:
 				_outline(poly, Pal.INK.darkened(0.45))
 	var end: Vector2 = tr[tr.size() - 1]["pos"]
 	if end.distance_to(h.pos) > 1.0:
-		_dots(h.pos, end, Pal.INK.darkened(0.4))
+		var from := h.pos
+		for e in tr:
+			_dots(from, e["pos"], Pal.INK.darkened(0.4))
+			from = e["pos"]
 		_ring(end, Duel._radius(h), Pal.INK.darkened(0.3))
 	if main.tool == "roll":
 		# Where the roll is safe from hits.

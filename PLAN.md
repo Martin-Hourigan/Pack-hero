@@ -221,7 +221,7 @@ TUNING (2026-11-20, Martin)
   quarterstaff's bow and the spear staff too). The draw / raise is spread
   over the longer wind-up.
 
-ROOMS AND ENEMIES (2026-11-20)
+ROOMS AND ENEMIES (2026-11-20; the run became ONE MAP 2026-11-21)
 DECIDED (Martin: "go with your picks"): a short run of rooms (4), the knight
 in the last; doorways always open; pillars in some rooms; enemies stay in
 their room; dying = back to room 1, no refills between rooms (a rest spot
@@ -259,6 +259,31 @@ and AI; an archer waits 3 steps after each shot. The rooms' sizes, pillars
 and who's where. Sight has no distance limit (a room with no pillars is
 all seen at once). Pillars don't stop blades. The camera can look past the
 room's edge (blank). Greatbow numbers and look. Dev: --foes=..., --room=N.
+
+
+ONE MAP, DOORS, AGGRO (2026-11-21)
+DECIDED (Martin): rooms were very hard to get between (the doorway too
+close to the wall); one connected map instead. Doors separate the rooms
+for now; the boss has a door that closes behind you when you enter.
+Enemies only come for you once they see you AND you're within aggro range.
+Agreed: the four rooms become areas of one map, snaking (1 top left, 2 to
+its right, 3 below 2, the knight's left of 3), joined by halls; anything
+not floor is wall (blocks walking, shots, sight); fog over the whole map;
+dying: back to the start of area 1, everything reset, seen kept.
+BUILT: Acts.MAP (areas, halls, doors, pillars, foes). Walking into a closed
+door opens it (that step), and the walk goes on through. The boss door
+(dull red) shuts once you're fully in the knight's area and won't open
+while he lives. Won when the knight dies. Enemies wake on sight within
+Acts.AGGRO (or when hit), then keep after you; out of a straight line
+they find the way round walls and pillars (a closed door stops them).
+Tapping somewhere out of a straight line, the hero walks the way round
+too (the dots show it). Walking into a wall at a slant slides along it.
+Archers walk until they can see you before shooting.
+PLACEHOLDER: halls 40 px wide, 60/60/40 long; doors 8 px thick, mid-hall;
+aggro 100 px for every enemy (the knight too); enemies can't open doors;
+enemies hit before they've seen you still wake; once awake they never give
+up; the walls are thin lines on the edge of the wall squares. Dev:
+--room=N starts in area N.
 
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).

@@ -67,26 +67,32 @@ const BOW := {"shot": 12, "wind": 2, "reach": 96.0, "w": 5.0, "near": 32.0, "far
 ## The arena: where bodies can stand (px).
 const ARENA := Rect2(12, 12, 360, 158)
 
-## The run: rooms one after another, each its own space from 0,0 (px).
-## area: where bodies can stand. start: where the hero comes in (facing
-## right). door: the doorway in the right wall, [from y, to y]: walk into
-## it for the next room (none: the last room; all its enemies dead, won).
-## pillars: Rect2s that block walking, shots and sight. foes: {k
-## (Acts.FOES), at, a (facing; left if not said)}. All PLACEHOLDER.
-const ROOMS := [
-	{"area": Rect2(0, 0, 360, 200), "start": Vector2(24, 100), "door": [84.0, 116.0],
-		"foes": [{"k": "soldier", "at": Vector2(250, 70)}, {"k": "soldier", "at": Vector2(270, 140)}]},
-	{"area": Rect2(0, 0, 420, 260), "start": Vector2(24, 130), "door": [30.0, 62.0],
-		"pillars": [Rect2(180, 100, 40, 60)],
-		"foes": [{"k": "soldier", "at": Vector2(300, 80)}, {"k": "spearman", "at": Vector2(320, 200)},
-			{"k": "archer", "at": Vector2(390, 140)}]},
-	{"area": Rect2(0, 0, 460, 320), "start": Vector2(24, 46), "door": [230.0, 262.0],
-		"pillars": [Rect2(120, 140, 36, 36), Rect2(300, 60, 36, 80)],
-		"foes": [{"k": "soldier", "at": Vector2(200, 80)}, {"k": "soldier", "at": Vector2(240, 250)},
-			{"k": "spearman", "at": Vector2(380, 230)}, {"k": "archer", "at": Vector2(420, 40)}]},
-	{"area": Rect2(0, 0, 360, 200), "start": Vector2(24, 100),
-		"foes": [{"k": "knight", "at": Vector2(260, 100)}]},
-]
+## The map: one space, its areas joined by halls (px). areas: the rooms
+## (Rect2s); halls: the corridors between them; anything else is wall.
+## doors: one a hall, {rect, boss}: closed until the hero walks into one;
+## the boss door shuts behind him once he's in the boss area (areas[boss])
+## and stays shut while the knight lives. starts: where the hero begins in
+## each area (the run starts in the first). pillars: Rect2s that block
+## walking, shots and sight. foes: {k (Acts.FOES), at, a (facing; left if
+## not said)}. All PLACEHOLDER.
+const MAP := {
+	"areas": [Rect2(0, 0, 360, 200), Rect2(420, 0, 420, 260), Rect2(400, 320, 460, 320), Rect2(0, 380, 360, 200)],
+	"halls": [Rect2(360, 80, 60, 40), Rect2(608, 260, 40, 60), Rect2(360, 460, 40, 40)],
+	"doors": [{"rect": Rect2(384, 80, 8, 40)}, {"rect": Rect2(608, 284, 40, 8)},
+		{"rect": Rect2(376, 460, 8, 40), "boss": true}],
+	"boss": 3,
+	"starts": [Vector2(24, 100), Vector2(444, 100), Vector2(630, 344), Vector2(340, 480)],
+	"pillars": [Rect2(600, 100, 40, 60), Rect2(520, 460, 36, 36), Rect2(700, 380, 36, 80)],
+	"foes": [{"k": "soldier", "at": Vector2(250, 70)}, {"k": "soldier", "at": Vector2(270, 140)},
+		{"k": "soldier", "at": Vector2(720, 80)}, {"k": "spearman", "at": Vector2(740, 200)},
+		{"k": "archer", "at": Vector2(810, 140)},
+		{"k": "soldier", "at": Vector2(600, 400)}, {"k": "soldier", "at": Vector2(640, 570)},
+		{"k": "spearman", "at": Vector2(780, 550)}, {"k": "archer", "at": Vector2(820, 360)},
+		{"k": "knight", "at": Vector2(260, 480), "a": 0.0}],
+}
+## An enemy comes for the hero once it sees him within this (px; or once
+## hit). PLACEHOLDER.
+const AGGRO := 100.0
 ## Line of sight is worked out in squares this many px across.
 const FOG := 4
 

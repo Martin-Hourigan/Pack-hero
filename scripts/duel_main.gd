@@ -35,7 +35,7 @@ extends Node2D
 ## Dev flags (after --): --duel (straight in), --seed=N, --at=x,y (the hero
 ## there), --knight=sweep / backhand / overhead (he starts it now),
 ## --foes=soldier,spearman,archer (them in the old arena instead of the
-## run), --room=N (start the run in room N, from 0),
+## run), --room=N (start in the map's area N, from 0),
 ## --steps=N (play N steps first), --tool=right:light (picked) with
 ## --mouse=x,y (aimed there), --touch, --blocking (GUARD on), --lock (LOCK on), --menu=right (that hand's menu open), --gear=left,right or
 ## left,left2,right,right2 (e.g. crossbow,staff; _ for a space; the slots
@@ -134,20 +134,20 @@ func _ready() -> void:
 		menu = String(flags.get("menu", ""))
 
 
-## The rooms to go through: Acts.ROOMS, or one of --foes' in a column on
-## the right of the old arena.
-func run_rooms() -> Array:
+## The map: Acts.MAP, or one room of --foes' in a column on the right of
+## the old arena (they've seen you).
+func run_map() -> Dictionary:
 	if not flags.has("foes"):
-		return Acts.ROOMS
+		return Acts.MAP
 	var out := []
 	var ks := String(flags["foes"]).split(",")
 	for i in ks.size():
-		out.append({"k": ks[i], "at": Vector2(280 + 30 * (i % 2), 40 + 110.0 * (i + 0.5) / ks.size()), "a": PI})
-	return [{"area": Acts.ARENA, "start": Vector2(110, 92), "foes": out}]
+		out.append({"k": ks[i], "at": Vector2(280 + 30 * (i % 2), 40 + 110.0 * (i + 0.5) / ks.size()), "a": PI, "aware": true})
+	return {"area": Acts.ARENA, "start": Vector2(110, 92), "foes": out}
 
 
 func begin() -> void:
-	duel = Duel.new(int(flags.get("seed", "0")), gear, run_rooms(), int(flags.get("room", "0")), memory)
+	duel = Duel.new(int(flags.get("seed", "0")), gear, run_map(), int(flags.get("room", "0")), memory)
 	mode = "duel"
 	tool = "move"
 	u = 1.0
