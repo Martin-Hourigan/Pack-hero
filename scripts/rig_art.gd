@@ -117,6 +117,35 @@ static func pose(path: String, k: String, f: float) -> Dictionary:
 	return out
 
 
+## Only what clip k moves, at frame f: {node: {pos, rot, part, vis}} with
+## just the values it has tracks for (to lay over another pose).
+static func track_pose(path: String, k: String, f: float) -> Dictionary:
+	var rig := get_rig(path)
+	var cl: Dictionary = rig.get("clips", {}).get(k, {})
+	var out := {}
+	if cl.is_empty():
+		return out
+	var by := {}
+	for n in rig.get("nodes", []):
+		by[n["name"]] = n
+	for name in cl.get("tracks", {}):
+		if not by.has(name):
+			continue
+		var n: Dictionary = by[name]
+		var tr: Dictionary = cl["tracks"][name]
+		var e := {}
+		if tr.has("x") or tr.has("y"):
+			e["pos"] = Vector2(_track(tr.get("x", {}), f, n["pos"][0]), _track(tr.get("y", {}), f, n["pos"][1]))
+		if tr.has("rot"):
+			e["rot"] = float(_track(tr["rot"], f, n.get("rot", 0.0)))
+		if tr.has("part"):
+			e["part"] = String(_track(tr["part"], f, n.get("part", ""), true))
+		if tr.has("vis"):
+			e["vis"] = bool(_track(tr["vis"], f, n.get("vis", true), true))
+		out[name] = e
+	return out
+
+
 ## The number of frames in clip k (0 = no such clip).
 static func frames(path: String, k: String) -> int:
 	return int(get_rig(path).get("clips", {}).get(k, {}).get("frames", 0))

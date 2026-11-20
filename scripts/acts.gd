@@ -123,21 +123,68 @@ const HERO := {
 	"drink": 5,  # steps a flask takes
 	"hurt": 2,  # steps lost when hit
 	"hurt_push": 6.0,  # px pushed away from the knight when hit
-	"light": {"clip": "light", "wind": 1, "swing": 4, "rec": 2, "live": [1, 2, 3, 4], "dmg": 30, "st": 20},
-	"heavy": {"clip": "heavy", "wind": 3, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 55, "st": 35},
 	# 4 steps of `px`; hits miss on the first `safe` steps.
 	"roll": {"clip": "roll", "steps": 4, "px": 8.0, "safe": 2, "st": 25},
-	# A step facing the way it's aimed: a hit landing within `arc` degrees of
-	# straight ahead does nothing.
-	"block": {"clip": "block", "arc": 180.0, "st": 0},
 }
 
-## What's in the hero's hands, and what each item can do (the hand's menu).
+## What's in the hero's hands at first (the gear screen changes it).
 const HANDS := {"left": "kite shield", "right": "longsword"}
+## The order the gear screen goes through.
+const GEAR := ["longsword", "kite shield", "crossbow", "staff", "claymore", "bow"]
+
+## Everything the hero can hold. hands: 1 (either hand) or 2. key: its
+## nodes' and clips' prefix in the hero's puppet (one-handed nodes end _r /
+## _l). nodes: what's drawn when it's held. blade: the node that hits.
+## does: its hand's menu, in order. An attack: clip, wind, swing, rec (steps),
+## live (swing steps that hit), dmg, st (stamina), lunge (px a swing step).
+## shot: SHOTS entry, fired on the first swing step. casts: a limit (spells).
+## loaded: needs loading first (a crossbow). reload: steps. block: arc
+## (degrees in front where hits do nothing).
 const ITEMS := {
-	"longsword": {"name": "LONGSWORD", "does": ["light", "heavy"]},
-	"kite shield": {"name": "KITE SHIELD", "does": ["block"]},
+	"longsword": {"name": "LONGSWORD", "hands": 1, "key": "ls", "nodes": ["ls_hilt", "ls_blade"], "blade": "ls_blade", "does": {
+		"light": {"clip": "ls_light", "wind": 1, "swing": 4, "rec": 2, "live": [1, 2, 3, 4], "dmg": 30, "st": 20},
+		"heavy": {"clip": "ls_heavy", "wind": 3, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 55, "st": 35},
+	}},
+	"kite shield": {"name": "KITE SHIELD", "hands": 1, "key": "sh", "nodes": ["sh"], "does": {
+		"block": {"clip": "sh_block", "block": 180.0, "st": 0},
+	}},
+	"claymore": {"name": "CLAYMORE", "hands": 2, "key": "cm", "nodes": ["cm_hilt", "cm_blade"], "blade": "cm_blade", "does": {
+		"light": {"clip": "cm_light", "wind": 2, "swing": 5, "rec": 2, "live": [1, 2, 3, 4, 5], "dmg": 50, "st": 30},
+		"heavy": {"clip": "cm_heavy", "wind": 3, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 90, "st": 45},
+	}},
+	"bow": {"name": "BOW", "hands": 2, "key": "bow", "nodes": ["bow", "bow_string", "arrow"], "does": {
+		"arrow": {"clip": "bow_shot", "wind": 3, "swing": 1, "rec": 1, "shot": "arrow", "st": 15},
+		"fire arrow": {"clip": "bow_shot", "wind": 3, "swing": 1, "rec": 1, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
+		"heavy shot": {"clip": "bow_heavy", "wind": 5, "swing": 1, "rec": 1, "shot": "heavy arrow", "st": 30},
+	}},
+	"crossbow": {"name": "CROSSBOW", "hands": 1, "key": "xb", "nodes": ["xb", "xb_bolt"], "does": {
+		"bolt": {"clip": "xb_shot", "wind": 0, "swing": 1, "rec": 1, "shot": "bolt", "st": 10, "loaded": true},
+		"poison bolt": {"clip": "xb_shot", "wind": 0, "swing": 1, "rec": 1, "shot": "poison bolt", "st": 10, "loaded": true},
+		"reload": {"clip": "xb_reload", "reload": 4, "st": 0},
+	}},
+	"staff": {"name": "STAFF", "hands": 1, "key": "st", "nodes": ["st"], "does": {
+		"bolt": {"clip": "st_bolt", "wind": 1, "swing": 1, "rec": 1, "shot": "magic bolt", "st": 20, "casts": 20},
+		"heavy bolt": {"clip": "st_heavy", "wind": 3, "swing": 1, "rec": 2, "shot": "heavy magic bolt", "st": 40, "casts": 20},
+	}},
 }
+
+## What flies: speed (px a step), steps (before it's gone), r (px across the
+## middle), dmg, burn (BURNS entry put on what it hits), col.
+const SHOTS := {
+	"arrow": {"speed": 24.0, "steps": 10, "r": 1.0, "dmg": 25, "col": "#e8e2d0"},
+	"fire arrow": {"speed": 24.0, "steps": 10, "r": 1.0, "dmg": 20, "burn": "fire", "col": "#d9784a"},
+	"heavy arrow": {"speed": 32.0, "steps": 10, "r": 1.0, "dmg": 50, "col": "#e8e2d0"},
+	"bolt": {"speed": 28.0, "steps": 10, "r": 1.0, "dmg": 35, "col": "#c9c2b0"},
+	"poison bolt": {"speed": 28.0, "steps": 10, "r": 1.0, "dmg": 25, "burn": "poison", "col": "#8e5c8e"},
+	"magic bolt": {"speed": 14.0, "steps": 16, "r": 2.0, "dmg": 30, "col": "#a89bd0"},
+	"heavy magic bolt": {"speed": 10.0, "steps": 20, "r": 3.5, "dmg": 70, "col": "#a89bd0"},
+}
+## Damage every step for so many steps (hit again: back to full).
+const BURNS := {
+	"fire": {"dmg": 6, "steps": 5, "col": "#d9784a"},
+	"poison": {"dmg": 3, "steps": 12, "col": "#8e5c8e"},
+}
+
 const KNIGHT := {
 	"walk": 3.0,  # px a step
 	"reach": 40.0,  # px from him to the hero: he attacks from here
@@ -145,6 +192,10 @@ const KNIGHT := {
 	"overhead_cone": 30.0,  # degrees: the hero this near straight ahead
 	"overhead_near": 22.0,  # px: and further than this, he'll chop
 	"backhand_odds": 0.6,  # after a sweep
+	# Stagger: once the hero's hits add up to `poise` damage he stops what
+	# he's doing for `stagger` steps; `calm` steps without a hit and it's
+	# back to nothing.
+	"poise": 100, "stagger": 4, "calm": 8,
 	"sweep": {"clip": "sweep", "wind": 3, "swing": 5, "rec": 2, "live": [1, 2, 3, 4, 5], "dmg": 50},
 	"backhand": {"clip": "backhand", "wind": 0, "swing": 5, "rec": 3, "live": [1, 2, 3, 4, 5], "dmg": 40},
 	"overhead": {"clip": "overhead", "wind": 4, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 80},

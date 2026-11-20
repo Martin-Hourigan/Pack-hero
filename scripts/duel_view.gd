@@ -15,6 +15,9 @@ func _draw() -> void:
 	if main.mode == "title":
 		_title()
 		return
+	if main.mode == "gear":
+		_gear()
+		return
 	var d: Duel = main.duel
 	if d == null:
 		return
@@ -27,6 +30,7 @@ func _draw() -> void:
 	order.sort_custom(func(a, b): return a.pos.y < b.pos.y)
 	for u in order:
 		_unit(d, u)
+	_shots(d)
 	for s in d.sparks:
 		draw_rect(Rect2(_px(s["p"]), Vector2.ONE * (2.0 if s["life"] / s["max"] > 0.5 else 1.0)), s["col"])
 	for n in d.numbers:
@@ -50,7 +54,7 @@ func _arena() -> void:
 ## each hitting step the steps left.
 func _ghosts(d: Duel) -> void:
 	var k := d.knight
-	if k.idle() or String(k.cur["k"]) == "walk" or main.u < 1.0:
+	if k.idle() or String(k.cur["k"]) in ["walk", "stagger"] or main.u < 1.0:
 		return
 	var tr := d.trace(k)
 	var first := -1
@@ -93,11 +97,15 @@ func _preview(d: Duel) -> void:
 	var a: Dictionary = d.shape(main.tool, main.hover)
 	if a.is_empty():
 		return
-	if main.tool == "block":
+	var sp := d.spec(main.tool)
+	if sp.has("block"):
 		# The front it guards.
 		var aim := float(a["steps"][0]["face"])
-		var half := deg_to_rad(float(Acts.HERO["block"]["arc"])) / 2.0
+		var half := deg_to_rad(float(sp["block"])) / 2.0
 		draw_arc(_px(h.pos), Duel._radius(h) + 4.0, aim - half, aim + half, 16, Pal.INK.darkened(0.3))
+		return
+	if sp.has("shot"):
+		_shot_path(d, String(sp["shot"]), float(a["steps"][0]["face"]), int(sp["wind"]))
 		return
 	var tr := d.trace(h, a)
 	if tr.is_empty():
@@ -109,7 +117,7 @@ func _preview(d: Duel) -> void:
 				draw_colored_polygon(poly, dim)
 	for e in tr:
 		if e["live"]:
-			for poly in d.blade(h, e["pose"], e["pos"], e["ang"]):
+			for poly in d.blade(h, e["pose"], e["pos"], e["ang"], e["blade"]):
 				_outline(poly, Pal.INK.darkened(0.45))
 	var end: Vector2 = tr[tr.size() - 1]["pos"]
 	if end.distance_to(h.pos) > 1.0:
@@ -133,6 +141,8 @@ func _unit(d: Duel, u: Unit) -> void:
 		a = lerp_angle(float(was["ang"]), u.ang, t)
 		pose = RigArt.blend(was["pose"], u.pose, t)
 	var s := float(u.data()["scale"])
+	if String(u.cur.get("k", "")) == "stagger":
+		a += sin(main.clock * 30.0) * 0.12  # reeling
 	var o := {"pose": pose}
 	if u.flash >= 0.5:
 		o["all"] = Color.WHITE
@@ -153,6 +163,13 @@ func _bars(d: Duel) -> void:
 	var k := d.knight
 	draw_rect(Rect2(280, 3, 100, 4), Pal.DARK)
 	draw_rect(Rect2(280, 3, round(100.0 * maxf(k.hp, 0) / k.max_hp), 4), Pal.DIM)
+	# Poise: how near he is to staggering.
+	draw_rect(Rect2(280, 8, round(100.0 * minf(float(k.taken) / float(Acts.KNIGHT["poise"]), 1.0)), 1), Pal.INK.darkened(0.3))
+	# Burning, poisoned: a pip each under his bar, as long as steps are left.
+	var y := 11
+	for b in k.burns:
+		draw_rect(Rect2(380 - int(k.burns[b]) * 2, y, int(k.burns[b]) * 2, 1), Color(Acts.BURNS[b]["col"]))
+		y += 2
 
 
 func _wig(d: Duel, k: String) -> float:
@@ -167,12 +184,17 @@ func _tools(d: Duel) -> void:
 		var hand := id.trim_prefix("hand:") if id.begins_with("hand:") else ""
 		var picked: bool = main.tool == id or (hand != "" and main.hand_of(main.tool) == hand)
 		var col: Color = Pal.INK if picked or main.held == id or (hand != "" and main.menu == hand) else Pal.DIM
-		if Duel.cost(id) > d.stamina or (id == "flask" and d.flasks <= 0):
+		if (id == "roll" and d.cost(id) > d.stamina) or (id == "flask" and d.flasks <= 0):
 			col = Pal.DIM.darkened(0.45)
-		_button(b[0], b[2], col, picked, main.tool.to_upper() if hand != "" and picked else "")
+		var r: Rect2 = b[0]
+		r.position.x += _wig(d, id)
+		_button(r, b[2], col, picked, main.tool.split(":")[1].to_upper() if hand != "" and picked else "")
 	for b in main.menu_buttons():
-		var col: Color = Pal.DIM.darkened(0.45) if Duel.cost(b[1]) > d.stamina else Pal.INK
-		_button(b[0], b[2], col, main.tool == b[1])
+		var id: String = b[1]
+		var sp := d.spec(id)
+		var no: bool = d.cost(id) > d.stamina or (d.casts.has(id) and int(d.casts[id]) <= 0) \
+			or (sp.get("loaded", false) and not d.loaded.get(main.hand_of(id), false))
+		_button(b[0], b[2], Pal.DIM.darkened(0.45) if no else Pal.INK, main.tool == id)
 	var s := str(d.step_n)
 	Pal.text(self, Vector2(380 - Pal.width(s), 178), s, Pal.DARK.lightened(0.2))
 
@@ -193,6 +215,61 @@ func _result(d: Duel) -> void:
 	var w := Pal.width(s, 2)
 	Pal.text(self, Vector2(192 - w / 2.0, 88), s, Pal.INK if d.result == "win" else Pal.DANGER, 2)
 	Pal.text(self, Vector2(192 - Pal.width("SPACE") / 2.0, 104), "SPACE", Pal.DIM)
+
+
+## Arrows, bolts and spells in flight (between where they were and are).
+func _shots(d: Duel) -> void:
+	var t: float = main.u
+	for s in d.shots + d.gone:
+		var sp: Dictionary = Acts.SHOTS[s["k"]]
+		var col := Color(sp["col"])
+		var p: Vector2 = Vector2(s["from"]).lerp(s["p"], t)
+		if d.gone.has(s) and t >= 1.0:
+			continue
+		var f := Vector2.from_angle(float(s["ang"]))
+		if float(sp["r"]) >= 2.0:
+			draw_circle(_px(p), float(sp["r"]), col)
+		else:
+			draw_line(_px(p - f * 5.0), _px(p), col)
+
+
+## Where a shot would go from the hero aimed `ang`: a mark where it'll be
+## each step, up to where it'd reach the knight or its end.
+func _shot_path(d: Duel, k: String, ang: float, wind: int) -> void:
+	var sp: Dictionary = Acts.SHOTS[k]
+	var f := Vector2.from_angle(ang)
+	var p := d.shot_from(d.hero, ang)
+	var col := Pal.INK.darkened(0.45)
+	var k_at: Array = d.knight.body()
+	for i in int(sp["steps"]):
+		var q := p + f * float(sp["speed"])
+		var hit := false
+		for n in 12:
+			var x := p.lerp(q, (n + 1) / 12.0)
+			for c in k_at:
+				if x.distance_to(c[0]) <= float(c[1]) + float(sp["r"]):
+					hit = true
+					q = x
+			if hit or not Acts.ARENA.has_point(x):
+				q = x
+				break
+		_dots(p, q, col)
+		draw_rect(Rect2(_px(q) - Vector2.ONE, Vector2(2, 2)), col)
+		if hit:
+			var s := str(wind + i + 1)
+			Pal.text(self, _px(q + Vector2(-1, -18)), s, Pal.INK)
+			return
+		if not Acts.ARENA.has_point(q):
+			return
+		p = q
+
+
+func _gear() -> void:
+	position = Vector2.ZERO
+	Pal.text(self, Vector2(120 - Pal.width("LEFT HAND") / 2.0, 70), "LEFT HAND", Pal.DIM)
+	Pal.text(self, Vector2(264 - Pal.width("RIGHT HAND") / 2.0, 70), "RIGHT HAND", Pal.DIM)
+	for b in main.gear_buttons():
+		_button(b[0], b[2], Pal.INK if b[1] != "back" else Pal.DIM, b[1] == "fight")
 
 
 func _title() -> void:

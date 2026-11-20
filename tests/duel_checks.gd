@@ -50,9 +50,18 @@ func _puppets() -> void:
 	for a in ["sweep", "backhand", "overhead"]:
 		var at: Dictionary = Acts.KNIGHT[a]
 		check(RigArt.frames(path, a) == int(at["wind"]) + int(at["swing"]) + int(at["rec"]) + 1, "the %s clip has a frame a step" % a)
-	for a in ["light", "heavy"]:
-		var at: Dictionary = Acts.HERO[a]
-		check(RigArt.frames(String(Acts.DUEL_UNITS["hero"]["art"]), a) == int(at["wind"]) + int(at["swing"]) + int(at["rec"]) + 1, "the hero's %s clip has a frame a step" % a)
+	var hp_art := String(Acts.DUEL_UNITS["hero"]["art"])
+	for th in Acts.ITEMS:
+		var it: Dictionary = Acts.ITEMS[th]
+		check(RigArt.frames(hp_art, String(it["key"]) + "_hold") == 1, "the hero can hold the %s" % th)
+		for o in it["does"]:
+			var at: Dictionary = it["does"][o]
+			var n := 1
+			if at.has("wind"):
+				n = int(at["wind"]) + int(at["swing"]) + int(at["rec"])
+			elif at.has("reload"):
+				n = int(at["reload"])
+			check(RigArt.frames(hp_art, String(at["clip"])) == n + 1, "the %s's %s clip has a frame a step" % [th, o])
 	var d := Duel.new(1)
 	var poly: PackedVector2Array = d.blade(d.knight, d.rest(d.knight), Vector2.ZERO, 0.0)[0]
 	var far := 0.0
@@ -145,20 +154,20 @@ func _hero() -> void:
 	d = Duel.new(1)
 	var st := d.stamina
 	d.plan("roll", d.hero.pos + Vector2(20, 0))
-	check(d.stamina == st - Duel.cost("roll"), "a roll costs stamina")
+	check(d.stamina == st - d.cost("roll"), "a roll costs stamina")
 	d = Duel.new(1)
-	d.stamina = Duel.cost("heavy") - 1
-	check(not d.plan("heavy", d.knight.pos) and d.wiggle.has("stamina"), "too little stamina: no, and the bar wiggles")
+	d.stamina = d.cost("right:heavy") - 1
+	check(not d.plan("right:heavy", d.knight.pos) and d.wiggle.has("stamina"), "too little stamina: no, and the bar wiggles")
 	# The hero's swing hits the knight, once.
 	d = Duel.new(1)
 	d.hero.pos = d.knight.pos + Vector2(-14, 0)
 	d.knight.cur = {"k": "wait", "label": "", "b": 0, "hit": false, "steps": []}
 	for i in 12:
 		d.knight.cur["steps"].append({"ph": "wait"})
-	d.plan("light", d.knight.pos)
+	d.plan("right:light", d.knight.pos)
 	for i in 7:
 		d.step()
-	check(d.knight.hp == d.knight.max_hp - int(Acts.HERO["light"]["dmg"]), "the light attack hits the knight once", str(d.knight.max_hp - d.knight.hp))
+	check(d.knight.hp == d.knight.max_hp - int(Acts.ITEMS["longsword"]["does"]["light"]["dmg"]), "the light attack hits the knight once", str(d.knight.max_hp - d.knight.hp))
 	# A flask heals, and there are only so many.
 	d = Duel.new(1)
 	d.hero.hp = 50
@@ -180,17 +189,14 @@ func _hero() -> void:
 		hp = d.hero.hp
 		for i in d.knight.cur["steps"].size():
 			if d.hero.idle():
-				d.plan("block", face)
+				d.plan("left:block", face)
 			d.step()
 		if away:
 			check(d.hero.hp < hp, "blocking the wrong way, hit")
 		else:
 			check(d.hero.hp == hp, "blocking toward the swing, no damage", str(hp - d.hero.hp))
-	check(d.shape("block", d.knight.pos)["steps"].size() == 1, "a block is one step")
-	for h in Acts.HANDS:
-		var it: Dictionary = Acts.ITEMS[Acts.HANDS[h]]
-		for k in it["does"]:
-			check(not d.shape(k, d.knight.pos).is_empty(), "the %s hand's %s works" % [h, k])
+	check(d.shape("left:block", d.knight.pos)["steps"].size() == 1, "a block is one step")
+	_gear()
 	# A walk stops when the knight starts an attack.
 	d = Duel.new(1)
 	d.hero.pos = d.knight.pos + Vector2(-60, 0)
@@ -231,9 +237,110 @@ func _whole() -> void:
 			if d.hero.idle():
 				if d.hero.pos.distance_to(d.knight.pos) > 22.0:
 					d.plan("move", d.knight.pos)
-				elif not d.plan("light", d.knight.pos):
+				elif not d.plan("right:light", d.knight.pos):
 					d.plan("wait", d.hero.pos)
 			d.step()
 		if d.result != "":
 			ended += 1
 	check(ended == 3, "3 whole fights end")
+
+
+## A duel with this gear, the knight standing still far off (or at `at`).
+func _armed(left: String, right: String, at := Vector2(-80, 0)) -> Duel:
+	var d := Duel.new(1, Duel.equip(Duel.equip(Acts.HANDS, "left", left), "right", right))
+	d.knight.pos = d.hero.pos + at.abs()
+	d.knight.ang = PI
+	_still_knight(d, 60)
+	return d
+
+
+func _still_knight(d: Duel, n: int) -> void:
+	d.knight.cur = {"k": "wait", "label": "", "b": 0, "hit": false, "steps": []}
+	for i in n:
+		d.knight.cur["steps"].append({"ph": "wait"})
+
+
+## Plays until the hero is free again (at most n steps).
+func _until_free(d: Duel, n := 40) -> void:
+	for i in n:
+		d.step()
+		if d.hero.idle():
+			return
+
+
+func _gear() -> void:
+	# Every item, in every hand it fits, does everything in its menu.
+	for th in Acts.GEAR:
+		for h in ["left", "right"]:
+			var d := Duel.new(1, Duel.equip(Acts.HANDS, h, th))
+			var hand: String = h if d.hands().size() == 2 else "right"
+			for o in d.item(hand)["does"]:
+				check(not d.shape(hand + ":" + o, d.knight.pos).is_empty(), "%s in the %s hand: %s" % [th, h, o])
+	var g := Duel.equip(Acts.HANDS, "left", "bow")
+	check(g["left"] == "bow" and g["right"] == "bow", "a two-handed item fills both hands")
+	g = Duel.equip(g, "right", "staff")
+	check(g["right"] == "staff" and int(Acts.ITEMS[g["left"]]["hands"]) == 1, "a one-handed item beside it: the other hand gets one too")
+	# The claymore's swing hits; so does the longsword in the left hand.
+	for lr in [["kite shield", "claymore", "right:light"], ["longsword", "staff", "left:light"]]:
+		var d := _armed(lr[0], lr[1], Vector2(18, 0))
+		d.plan(lr[2], d.knight.pos)
+		_until_free(d)
+		check(d.knight.hp < d.knight.max_hp, "%s with %s / %s hits" % [lr[2], lr[0], lr[1]], str(d.knight.hp))
+	# An arrow flies its speed a step and hits the knight far off.
+	var d := _armed("bow", "bow", Vector2(150, 0))
+	check(d.plan("right:arrow", d.knight.pos), "the bow shoots")
+	for i in int(Acts.ITEMS["bow"]["does"]["arrow"]["wind"]) + 1:
+		d.step()
+	check(d.shots.size() == 1, "the arrow is in the air")
+	var p0: Vector2 = d.shots[0]["p"]
+	d.step()
+	check(d.shots.is_empty() or is_equal_approx(Vector2(d.shots[0]["p"]).distance_to(p0), float(Acts.SHOTS["arrow"]["speed"])), "it flies its speed a step")
+	_until_free(d)
+	for i in 10:
+		d.step()
+	check(d.knight.max_hp - d.knight.hp == int(Acts.SHOTS["arrow"]["dmg"]), "the arrow hits the knight", str(d.knight.max_hp - d.knight.hp))
+	# Fire burns for steps after.
+	d = _armed("bow", "bow", Vector2(60, 0))
+	d.plan("right:fire arrow", d.knight.pos)
+	for i in 8:
+		d.step()
+	var after := d.knight.hp
+	check(d.knight.burns.has("fire"), "a fire arrow sets him burning")
+	d.step()
+	check(d.knight.hp < after, "burning hurts every step")
+	# Crossbow: shoots when loaded, not again until reloaded.
+	d = _armed("crossbow", "longsword", Vector2(60, 0))
+	check(d.plan("left:poison bolt", d.knight.pos), "the loaded crossbow shoots")
+	_until_free(d)
+	check(not d.loaded["left"], "then it's empty")
+	check(not d.plan("left:bolt", d.knight.pos) and d.wiggle.has("hand:left"), "empty: can't shoot, the hand wiggles")
+	check(d.plan("left:reload", d.knight.pos), "reload")
+	_until_free(d)
+	check(d.loaded["left"] and d.plan("left:bolt", d.knight.pos), "loaded again, it shoots")
+	for i in 6:
+		d.step()
+	check(d.knight.burns.has("poison"), "the poison bolt poisoned him")
+	# Enough hits and the knight staggers: his swing stops.
+	d = _armed("kite shield", "claymore", Vector2(18, 0))
+	d.start_attack("overhead")
+	d.knight.taken = int(Acts.KNIGHT["poise"]) - 1
+	d.plan("right:light", d.knight.pos)
+	for i in 12:
+		d.step()
+		if d.knight.hp < d.knight.max_hp:
+			break
+	check(String(d.knight.cur.get("k", "")) == "stagger", "enough hits: he staggers, his swing stopped", str(d.knight.cur.get("k", "")))
+	d = Duel.new(1)
+	d.knight.taken = 50
+	d.hero.pos = Vector2(30, 30)
+	for i in int(Acts.KNIGHT["calm"]) + 1:
+		_still_knight(d, 1)
+		d.step()
+	check(d.knight.taken == 0, "left alone a while, his poise comes back")
+	# Staff: casts run out.
+	d = _armed("kite shield", "staff", Vector2(60, 0))
+	var c := int(d.casts["right:bolt"])
+	check(d.plan("right:bolt", d.knight.pos) and int(d.casts["right:bolt"]) == c - 1, "a cast uses one up")
+	_until_free(d)
+	d.casts["right:heavy bolt"] = 0
+	check(not d.plan("right:heavy bolt", d.knight.pos), "none left: no")

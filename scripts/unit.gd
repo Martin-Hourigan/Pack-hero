@@ -25,6 +25,7 @@ var col := Color.WHITE
 ## The duel's: its pose now (RigArt.pose) and where it was when the step began.
 var pose := {}
 var was := {}  # {pos, ang, pose}
+var burns := {}  # Acts.BURNS kind -> steps left
 
 
 func _init(k: String, at: Vector2, a: float) -> void:

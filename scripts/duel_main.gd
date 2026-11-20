@@ -4,22 +4,28 @@ extends Node2D
 ##
 ## Title: Space the knight, R the raptor (not on the phone: its controls are
 ## keys). The update button checks GitHub for a newer APK.
+## Gear (before the knight): tap a hand to change what's in it (Acts.GEAR's
+## order; a two-handed item fills both); FIGHT or Space to start.
 ## In the duel: 1 MOVE, 2 ROLL, 5 FLASK; 3 and 4 open the left and right
 ## hand's menus (the item's name on the button; the menu lists what it can
-## do: LIGHT, HEAVY, BLOCK...), and picking one makes it the tool. The mouse
+## do: LIGHT, HEAVY, BLOCK, ARROW...; spells with their casts left), and
+## picking one makes it the tool (RELOAD just does it). A two-handed item
+## has one wide button. The mouse
 ## aims the tool and left click does it; Space WAIT (a step). The buttons
 ## along the bottom do the same. The tool stays picked until another is
 ## (so BLOCK, a step at a time, keeps blocking). Steps play until the hero's action is done
 ## and you choose again (a walk also stops when the knight starts an attack).
 ## Esc (or the phone's back) to the title. After the fight, Space or a tap.
 ## On a phone (or with --touch) a tap aims (the preview shows there) and a
-## second tap on the same spot does it (BLOCK: one tap, it's one step);
+## second tap on the same spot does it (a block: one tap, it's one step);
 ## holding WAIT keeps waiting.
 ## Dev flags (after --): --duel (straight in), --seed=N, --at=x,y (the hero
 ## there), --knight=sweep / backhand / overhead (he starts it now),
-## --steps=N (play N steps first), --tool=light (picked) with --mouse=x,y
-## (aimed there), --touch, --blocking (the hero blocks those steps), --menu=right
-## (that hand's menu open).
+## --steps=N (play N steps first), --tool=right:light (picked) with
+## --mouse=x,y (aimed there), --touch, --blocking (the hero blocks those
+## steps), --menu=right (that hand's menu open), --gear=left,right (e.g.
+## crossbow,staff or bow,bow; _ for a space), --gearscreen (open the gear
+## screen), --dohero=right:heavy_bolt (the hero starts it, before --steps).
 
 const STEP_T := 0.07  # s a step takes on screen
 const TOOLS := [["1", "move"], ["2", "roll"], ["3", "hand:left"], ["4", "hand:right"], ["5", "flask"]]
@@ -27,7 +33,8 @@ const KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5]
 const SAME_TAP := 10.0  # px: a second tap this near the aim does it
 
 var duel: Duel
-var mode := "title"  # title, duel
+var mode := "title"  # title, gear, duel
+var gear := Acts.HANDS.duplicate()
 var flags := {}
 var clock := 0.0
 var tool := "move"
@@ -62,6 +69,11 @@ func _ready() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(Update.APK))
 	if OS.has_feature("mobile"):
 		_check_update()
+	if flags.has("gear"):
+		var lr := String(flags["gear"]).replace("_", " ").split(",")
+		gear = Duel.equip(Duel.equip(gear, "left", lr[0]), "right", lr[1])
+	if flags.has("gearscreen"):
+		mode = "gear"
 	if flags.has("duel"):
 		begin()
 		if flags.has("at"):
@@ -70,16 +82,18 @@ func _ready() -> void:
 		if flags.has("knight"):
 			duel.knight.ang = (duel.hero.pos - duel.knight.pos).angle()
 			duel.start_attack(String(flags["knight"]))
+		if flags.has("dohero"):
+			duel.plan(String(flags["dohero"]).replace("_", " "), duel.knight.pos)
 		for i in int(flags.get("steps", "0")):
 			if duel.hero.idle():
-				duel.hero.cur = duel.shape("block", duel.knight.pos) if flags.has("blocking") else duel.shape("wait", duel.hero.pos)
+				duel.hero.cur = duel.shape("left:block", duel.knight.pos) if flags.has("blocking") else duel.shape("wait", duel.hero.pos)
 			duel.step()
-		tool = String(flags.get("tool", tool))
+		tool = String(flags.get("tool", tool)).replace("_", " ")
 		menu = String(flags.get("menu", ""))
 
 
 func begin() -> void:
-	duel = Duel.new(int(flags.get("seed", "0")))
+	duel = Duel.new(int(flags.get("seed", "0")), gear)
 	mode = "duel"
 	tool = "move"
 	u = 1.0
@@ -147,7 +161,14 @@ func buttons() -> Array:
 	for t in TOOLS:
 		var id: String = t[1]
 		var w := 72.0 if id.begins_with("hand:") else 40.0
-		var label: String = item(id.trim_prefix("hand:"))["name"] if id.begins_with("hand:") else id.to_upper()
+		var label := id.to_upper()
+		if id.begins_with("hand:"):
+			var h := id.trim_prefix("hand:")
+			if duel.hands().size() == 1:
+				if h == "left":
+					continue  # one wide button (below)
+				w = 148.0
+			label = duel.item(h)["name"]
 		out.append([Rect2(x, 188, w, 20), id, label if touch else "%s %s" % [t[0], label]])
 		x += w + 4
 	out.append([Rect2(x, 188, 40, 20), "wait", "WAIT" if touch else "SPC WAIT"])
@@ -155,17 +176,14 @@ func buttons() -> Array:
 	return out
 
 
-## What's in hand h ("left", "right"): {name, does}.
-static func item(h: String) -> Dictionary:
-	return Acts.ITEMS[Acts.HANDS[h]]
-
-
 ## The hand whose item does tool k ("" = none).
 static func hand_of(k: String) -> String:
-	for h in Acts.HANDS:
-		if k in item(h)["does"]:
-			return h
-	return ""
+	return k.split(":")[0] if ":" in k else ""
+
+
+## The hand whose menu key n (3, 4) opens.
+func _hand_key(h: String) -> String:
+	return "right" if duel.hands().size() == 1 else h
 
 
 ## The open hand menu's options, stacked above its button: [rect, id, label].
@@ -177,10 +195,29 @@ func menu_buttons() -> Array:
 		if b[1] == "hand:" + menu:
 			at = b[0]
 	var out := []
-	var does: Array = item(menu)["does"]
+	var does: Array = duel.item(menu)["does"].keys()
+	var w := minf(at.size.x, 80.0)
 	for i in does.size():
-		out.append([Rect2(at.position.x, at.position.y - 18 * (does.size() - i), at.size.x, 16), does[i], String(does[i]).to_upper()])
+		var id := menu + ":" + String(does[i])
+		var label := String(does[i]).to_upper()
+		if duel.casts.has(id):
+			label += " %d" % int(duel.casts[id])
+		out.append([Rect2(at.position.x, at.position.y - 18 * (does.size() - i), w, 16), id, label])
 	return out
+
+
+## The gear screen's buttons: [rect, id, label].
+func gear_buttons() -> Array:
+	return [[Rect2(60, 80, 120, 24), "left", Acts.ITEMS[gear["left"]]["name"]],
+		[Rect2(204, 80, 120, 24), "right", Acts.ITEMS[gear["right"]]["name"]],
+		[Rect2(132, 130, 120, 20), "fight", "FIGHT" if touch else "SPACE  FIGHT"],
+		[Rect2(358, 188, 22, 20), "back", "<"]]
+
+
+## Puts the next item (Acts.GEAR) in hand h.
+func next_gear(h: String) -> void:
+	var i := Acts.GEAR.find(gear[h])
+	gear = Duel.equip(gear, h, Acts.GEAR[(i + 1) % Acts.GEAR.size()])
 
 
 ## The title's buttons: [rect, id, label].
@@ -207,10 +244,19 @@ func _press(p: Vector2) -> void:
 			"raptor":
 				get_tree().change_scene_to_file("res://scenes/main.tscn")
 			"knight":
-				begin()
+				mode = "gear"
 			_:
 				if not touch:
-					begin()
+					mode = "gear"
+		return
+	if mode == "gear":
+		match _hit(gear_buttons(), p):
+			"left", "right":
+				next_gear(_hit(gear_buttons(), p))
+			"fight":
+				begin()
+			"back":
+				_to_title()
 		return
 	if duel.result != "":
 		begin()
@@ -220,8 +266,11 @@ func _press(p: Vector2) -> void:
 		var was := menu
 		menu = ""
 		if m != "":
-			tool = m
-			aimed = false
+			if duel.spec(m).has("reload"):
+				act(m, duel.hero.pos)
+			else:
+				tool = m
+				aimed = false
 			return
 		if _hit(buttons(), p) == "hand:" + was:
 			return  # its button again: just closed
@@ -238,7 +287,7 @@ func _press(p: Vector2) -> void:
 	elif b != "":
 		tool = b
 		aimed = false
-	elif not touch or tool == "block":
+	elif not touch or duel.spec(tool).has("block"):
 		act(tool, p)
 	elif aimed and p.distance_to(hover) <= SAME_TAP:
 		if act(tool, hover):
@@ -253,9 +302,17 @@ func _key(k: int, echo: bool) -> void:
 		if echo:
 			return
 		if k == KEY_SPACE or k == KEY_ENTER:
-			begin()
+			mode = "gear"
 		elif k == KEY_R:
 			get_tree().change_scene_to_file("res://scenes/main.tscn")
+		return
+	if mode == "gear":
+		if echo:
+			return
+		if k == KEY_SPACE or k == KEY_ENTER:
+			begin()
+		elif k == KEY_ESCAPE:
+			_to_title()
 		return
 	if k == KEY_ESCAPE and not echo:
 		if menu != "":
@@ -272,7 +329,8 @@ func _key(k: int, echo: bool) -> void:
 		if t == "flask":
 			act("flask", duel.hero.pos)
 		elif t.begins_with("hand:"):
-			menu = "" if menu == t.trim_prefix("hand:") else t.trim_prefix("hand:")
+			var h := _hand_key(t.trim_prefix("hand:"))
+			menu = "" if menu == h else h
 		else:
 			tool = t
 			menu = ""

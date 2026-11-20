@@ -5,14 +5,19 @@ extends RefCounted
 ## (RigArt): an attack plays a clip, one frame a step, and the blade hits
 ## wherever the puppet's blade really is, swept from where it was at the
 ## step before (checked SWEEP_CHECKS times between, both bodies moving as
-## they go). A swing hits each body at most once. Numbers: Acts.HERO,
-## Acts.KNIGHT.
+## they go). A swing hits each body at most once. Shots (arrows, bolts,
+## spells) fly a set distance a step and hit the first body they reach.
+## Numbers: Acts.HERO, Acts.ITEMS, Acts.SHOTS, Acts.KNIGHT.
+##
+## The hero's tools: move, roll, flask, wait, and "hand:thing" for what the
+## item in that hand does (Acts.ITEMS), e.g. "right:light", "left:block".
 ##
 ## An action: {k, label, steps, b, hit (it has landed)}. A step:
-## {ph: wind / act / rec / move / roll / drink / wait / hurt / block, clip, frame,
+## {ph: wind / act / rec / move / roll / drink / wait / hurt / block / reload, clip, frame,
 ## live (the blade hits), safe (hits miss you), to (walk there), fwd (px
-## forward), track (turn toward the hero), dmg, heal, guard (hits from the
-## front do nothing)}.
+## forward), track (turn toward the hero), dmg, heal, guard (degrees in
+## front where hits do nothing), shoot (Acts.SHOTS entry), reload (that hand
+## is loaded), mirror (the clip is played in the left hand)}.
 
 var hero: Unit
 var knight: Unit
@@ -23,6 +28,12 @@ var stamina := 0
 var flasks := 0
 var last_attack := ""  # the knight's last attack
 var rng := RandomNumberGenerator.new()
+var gear := {}  # hand -> Acts.ITEMS key (a two-handed item is in both)
+var casts := {}  # tool -> casts left
+var loaded := {}  # hand -> its crossbow is loaded
+var shots: Array = []  # {k, p, from, ang, left, by}
+var gone: Array = []
+var calm := 0  # steps since the knight was last hit  # shots that ended this step (drawn for one more step)
 
 # Effects (the view draws them; they don't change play).
 var numbers: Array = []  # {p, s, life, col}
@@ -31,8 +42,16 @@ var shake_amt := 0.0
 var wiggle := {}  # HUD thing -> seconds left (a stamina bar that's too low)
 
 
-func _init(seed_ := 0) -> void:
+func _init(seed_ := 0, gear_ := Acts.HANDS) -> void:
 	rng.seed = seed_ if seed_ != 0 else int(Time.get_ticks_usec())
+	gear = gear_.duplicate()
+	for h in hands():
+		var does: Dictionary = item(h)["does"]
+		for o in does:
+			if does[o].has("casts"):
+				casts[h + ":" + o] = int(does[o]["casts"])
+			if does[o].get("loaded", false):
+				loaded[h] = true
 	hero = _add("hero", Vector2(110, 92), 0.0)
 	knight = _add("knight", Vector2(270, 92), PI)
 	knight.side = "enemy"
@@ -55,7 +74,108 @@ func art(u: Unit) -> String:
 
 ## The puppet's own pose (between actions).
 func rest(u: Unit) -> Dictionary:
+	if u == hero or (hero == null and u.kind == "hero"):
+		return hero_pose("", 0.0, false)
 	return RigArt.pose(art(u), "", 0.0)
+
+
+# ---------------------------------------------------------------- gear
+
+## Which hands have their own item: ["right"] when it's two-handed.
+func hands() -> Array:
+	return ["right"] if int(item("right")["hands"]) == 2 else ["left", "right"]
+
+
+func item(h: String) -> Dictionary:
+	return Acts.ITEMS[gear[h]]
+
+
+## The hands after putting `thing` in hand h: a two-handed item fills both;
+## a one-handed one put beside a two-handed one sends the other hand back
+## to what it starts with.
+static func equip(g: Dictionary, h: String, thing: String) -> Dictionary:
+	var out := g.duplicate()
+	var other := "left" if h == "right" else "right"
+	if int(Acts.ITEMS[thing]["hands"]) == 2:
+		out[h] = thing
+		out[other] = thing
+		return out
+	if int(Acts.ITEMS[out[h]]["hands"]) == 2:
+		out[other] = Acts.HANDS[other]
+		if out[other] == thing or int(Acts.ITEMS[out[other]]["hands"]) == 2:
+			out[other] = "kite shield" if thing != "kite shield" else "longsword"
+	out[h] = thing
+	return out
+
+
+## What tool k ("hand:thing") does, from Acts.ITEMS ({} = not a hand's).
+func spec(k: String) -> Dictionary:
+	var hk := k.split(":")
+	if hk.size() != 2 or not gear.has(hk[0]):
+		return {}
+	return item(hk[0])["does"].get(hk[1], {})
+
+
+## The hero's pose: what's in each hand held, and clip k at frame f on top
+## (mirror: played in the left hand). parts: {node: part} swapped in.
+func hero_pose(k: String, f: float, mirror: bool, parts := {}) -> Dictionary:
+	var path := String(Acts.DUEL_UNITS["hero"]["art"])
+	var out := RigArt.pose(path, "", 0.0)
+	var shown := {}
+	for h in ["left", "right"]:
+		var it := item(h)
+		for n in it["nodes"]:
+			shown[n if int(it["hands"]) == 2 else n + ("_r" if h == "right" else "_l")] = true
+	for th in Acts.ITEMS:
+		var it: Dictionary = Acts.ITEMS[th]
+		for n in it["nodes"]:
+			for nn in ([n] if int(it["hands"]) == 2 else [n + "_r", n + "_l"]):
+				if out.has(nn):
+					out[nn]["vis"] = shown.has(nn)
+	for h in hands():
+		var hold := String(item(h)["key"]) + "_hold"
+		_over(out, RigArt.track_pose(path, hold, 0.0), h == "left")
+	if k != "":
+		_over(out, RigArt.track_pose(path, k, f), mirror)
+	for h in loaded:
+		var n := "xb_bolt_" + ("r" if h == "right" else "l")
+		if out.has(n):
+			out[n]["vis"] = bool(loaded[h])
+	for n in parts:
+		if out.has(n):
+			out[n]["part"] = parts[n]
+	return out
+
+
+## Puts the tracked values in tp over pose `out` (flipped to the other side
+## when mirror).
+static func _over(out: Dictionary, tp: Dictionary, mirror: bool) -> void:
+	for n in tp:
+		var e: Dictionary = tp[n]
+		var nn: String = n
+		if mirror:
+			if nn.ends_with("_r"):
+				nn = nn.left(-2) + "_l"
+			elif nn.ends_with("_l"):
+				nn = nn.left(-2) + "_r"
+		if not out.has(nn):
+			continue
+		for key in e:
+			var v = e[key]
+			if mirror and key == "pos":
+				v = Vector2(v.x, -v.y)
+			elif mirror and key == "rot":
+				v = -float(v)
+			out[nn][key] = v
+
+
+## u's pose doing step st of action a.
+func pose_for(u: Unit, st: Dictionary, a: Dictionary) -> Dictionary:
+	if not st.has("clip"):
+		return rest(u)
+	if u == hero:
+		return hero_pose(String(st["clip"]), float(st["frame"]), st.get("mirror", false), a.get("parts", {}))
+	return RigArt.pose(art(u), String(st["clip"]), float(st["frame"]))
 
 
 # ---------------------------------------------------------------- actions
@@ -72,7 +192,9 @@ static func attack_steps(a: Dictionary) -> Array:
 			st["track"] = true
 		if st["ph"] == "act":
 			st["fwd"] = float(a.get("lunge", 0.0))
-			if (i - wind) in a["live"]:
+			if i == wind + 1 and a.has("shot"):
+				st["shoot"] = a["shot"]
+			if (i - wind) in a.get("live", []):
 				st["live"] = true
 				st["dmg"] = int(a["dmg"])
 		steps.append(st)
@@ -103,12 +225,6 @@ func shape(k: String, at: Vector2) -> Dictionary:
 				steps.append({"ph": "roll", "clip": r["clip"], "frame": i, "face": aim,
 					"to": u.pos + Vector2.from_angle(aim) * float(r["px"]) * i, "safe": i <= int(r["safe"])})
 			return _act(k, steps)
-		"light", "heavy":
-			var steps := attack_steps(Acts.HERO[k])
-			for st in steps:
-				st.erase("track")
-			steps[0]["face"] = aim
-			return _act(k, steps)
 		"flask":
 			if flasks <= 0:
 				return {}
@@ -119,14 +235,44 @@ func shape(k: String, at: Vector2) -> Dictionary:
 			return _act(k, steps)
 		"wait":
 			return _act(k, [{"ph": "wait"}])
-		"block":
-			return _act(k, [{"ph": "block", "clip": Acts.HERO["block"]["clip"], "frame": 1, "face": aim, "guard": true}])
-	return {}
+	var s := spec(k)
+	if s.is_empty():
+		return {}
+	var h := k.split(":")[0]
+	var it := item(h)
+	var mirror := h == "left" and int(it["hands"]) == 1
+	var side := "r" if h == "right" else "l"
+	var a: Dictionary
+	if s.has("block"):
+		a = _act(k, [{"ph": "block", "clip": s["clip"], "frame": 1, "face": aim, "guard": float(s["block"]), "mirror": mirror}])
+	elif s.has("reload"):
+		var steps := []
+		for i in range(1, int(s["reload"]) + 1):
+			steps.append({"ph": "reload", "clip": s["clip"], "frame": i, "mirror": mirror})
+		steps[steps.size() - 1]["reload"] = h
+		a = _act(k, steps)
+	else:
+		var steps := attack_steps(s)
+		for st in steps:
+			st.erase("track")
+			st["mirror"] = mirror
+			if st.has("shoot"):
+				st["hand"] = h
+		steps[0]["face"] = aim
+		a = _act(k, steps)
+		if it.has("blade"):
+			a["blade"] = String(it["blade"]) + ("" if int(it["hands"]) == 2 else "_" + side)
+	a["label"] = k.split(":")[1].to_upper()
+	if s.has("parts"):
+		a["parts"] = s["parts"]
+	return a
 
 
 ## The stamina tool k costs.
-static func cost(k: String) -> int:
-	return int(Acts.HERO[k].get("st", 0)) if Acts.HERO.get(k) is Dictionary else 0
+func cost(k: String) -> int:
+	if k == "roll":
+		return int(Acts.HERO["roll"]["st"])
+	return int(spec(k).get("st", 0))
 
 
 ## The hero starts doing k at `at`. False if it can't (busy, out of
@@ -137,12 +283,19 @@ func plan(k: String, at: Vector2) -> bool:
 	if cost(k) > stamina:
 		wiggle["stamina"] = 0.4
 		return false
+	var s := spec(k)
+	var h := k.split(":")[0]
+	if (casts.has(k) and int(casts[k]) <= 0) or (s.get("loaded", false) and not loaded.get(h, false)):
+		wiggle["hand:" + ("right" if hands().size() == 1 else h)] = 0.4
+		return false
 	var a := shape(k, at)
 	if a.is_empty():
 		if k == "flask":
 			wiggle["flasks"] = 0.4
 		return false
 	stamina -= cost(k)
+	if casts.has(k):
+		casts[k] = int(casts[k]) - 1
 	if k == "flask":
 		flasks -= 1
 	hero.cur = a
@@ -169,6 +322,19 @@ func _choose() -> void:
 	u.cur = _act("walk", [{"ph": "move", "to": u.pos.move_toward(hero.pos, go), "face": aim}])
 
 
+## The knight staggers: what he was doing stops for Acts.KNIGHT's
+## `stagger` steps.
+func stagger() -> void:
+	var steps := []
+	for i in int(Acts.KNIGHT["stagger"]):
+		steps.append({"ph": "stagger"})
+	knight.cur = _act("stagger", steps)
+	knight.cur["b"] = -1  # (counted up at the end of this step)
+	knight.taken = 0
+	last_attack = ""
+	shake_amt = maxf(shake_amt, 2.0)
+
+
 func start_attack(k: String) -> void:
 	knight.cur = _act(k, attack_steps(Acts.KNIGHT[k]))
 	last_attack = k
@@ -181,16 +347,25 @@ func step() -> void:
 	if result != "":
 		return
 	step_n += 1
+	gone = []
+	calm += 1
+	if calm >= int(Acts.KNIGHT["calm"]):
+		knight.taken = 0
 	for u in units:
 		u.was = {"pos": u.pos, "ang": u.ang, "pose": u.pose}
 	if knight.idle():
 		_choose()
 	var walking := String(hero.cur.get("k", "")) == "move"
-	var resting := not String(current(hero).get("ph", "")) in ["wind", "act", "rec", "roll", "drink"]
+	var resting := not String(current(hero).get("ph", "")) in ["wind", "act", "rec", "roll", "drink", "reload"]
 	var knight_starts := int(knight.cur.get("b", 1)) == 0 and _has_live(knight.cur)
 	for u in units:
 		_do(u)
 	_keep_apart()
+	var st_h := current(hero)
+	if st_h.has("shoot"):
+		_shoot(String(st_h["shoot"]), String(st_h.get("hand", "right")))
+	if st_h.has("reload"):
+		loaded[String(st_h["reload"])] = true
 	# The blades.
 	for u in units:
 		var st := current(u)
@@ -216,6 +391,8 @@ func step() -> void:
 		u.cur["b"] = int(u.cur["b"]) + 1
 		if int(u.cur["b"]) >= u.cur["steps"].size():
 			u.cur = {}
+	_fly()
+	_burn()
 	if resting:
 		stamina = mini(stamina + int(Acts.HERO["stamina_back"]), int(Acts.HERO["stamina"]))
 	# A walk stops when the knight starts an attack: you choose again.
@@ -256,7 +433,7 @@ func _do(u: Unit) -> void:
 		_walk(u, st["to"])
 	if float(st.get("fwd", 0.0)) > 0.0:
 		_walk(u, u.pos + Vector2.from_angle(u.ang) * float(st["fwd"]))
-	u.pose = RigArt.pose(art(u), String(st["clip"]), float(st["frame"])) if st.has("clip") else rest(u)
+	u.pose = pose_for(u, st, u.cur)
 
 
 ## Moves u toward `to`, a pixel at a time, stopping at the arena's edge. The
@@ -310,6 +487,11 @@ func _hurt(v: Unit, by: Unit, d: int) -> void:
 	_number(v.pos + Vector2(0, -12), str(d), Pal.DANGER if v == hero else Pal.INK)
 	_sparks(v.pos, 6, Pal.DANGER if v == hero else Pal.INK)
 	shake_amt = maxf(shake_amt, 2.0 if v == hero else 1.0)
+	if v == knight and v.alive():
+		calm = 0
+		v.taken += d
+		if v.taken >= int(Acts.KNIGHT["poise"]):
+			stagger()
 	if v == hero and v.alive():
 		# Knocked back, and what it was doing stops.
 		var way := (v.pos - by.pos).normalized()
@@ -326,10 +508,11 @@ func _hurt(v: Unit, by: Unit, d: int) -> void:
 ## Whether v, guarding, stops a hit landing at `at` (within the block's
 ## arc of where v faces).
 func blocks(v: Unit, at: Vector2) -> bool:
-	if not current(v).get("guard", false):
+	var arc := float(current(v).get("guard", 0.0))
+	if arc <= 0.0:
 		return false
 	var off := absf(angle_difference(v.ang, (at - v.pos).angle()))
-	return rad_to_deg(off) <= float(Acts.HERO["block"]["arc"]) / 2.0
+	return rad_to_deg(off) <= arc / 2.0
 
 
 func _blocked(at: Vector2) -> void:
@@ -337,23 +520,23 @@ func _blocked(at: Vector2) -> void:
 	shake_amt = maxf(shake_amt, 1.0)
 
 
-## u's blade polygons, posed `pose`, standing at p facing a.
-func blade(u: Unit, pose: Dictionary, p: Vector2, a: float) -> Array:
+## u's blade polygons (node `node`), posed `pose`, standing at p facing a.
+func blade(u: Unit, pose: Dictionary, p: Vector2, a: float, node := "blade") -> Array:
 	var s := float(u.data()["scale"])
 	var polys := []
-	for e in RigArt.geometry(art(u), Transform2D(a, Vector2(s, s), 0.0, p), {"pose": pose, "only": ["blade"]}):
+	for e in RigArt.geometry(art(u), Transform2D(a, Vector2(s, s), 0.0, p), {"pose": pose, "only": [node]}):
 		polys.append_array(e["polys"])
 	return polys
 
 
 ## The ground u's blade sweeps over going from pose a (at pa, facing aa) to
 ## pose b (at pb, facing ab): one hull for each check between.
-func swept(u: Unit, a: Dictionary, pa: Vector2, aa: float, b: Dictionary, pb: Vector2, ab: float) -> Array:
+func swept(u: Unit, a: Dictionary, pa: Vector2, aa: float, b: Dictionary, pb: Vector2, ab: float, node := "blade") -> Array:
 	var out := []
-	var prev := blade(u, a, pa, aa)
+	var prev := blade(u, a, pa, aa, node)
 	for k in range(1, Acts.SWEEP_CHECKS + 1):
 		var t := float(k) / Acts.SWEEP_CHECKS
-		var now := blade(u, RigArt.blend(a, b, t), pa.lerp(pb, t), lerp_angle(aa, ab, t))
+		var now := blade(u, RigArt.blend(a, b, t), pa.lerp(pb, t), lerp_angle(aa, ab, t), node)
 		for i in mini(prev.size(), now.size()):
 			out.append(Geometry2D.convex_hull(prev[i] + now[i]))
 		prev = now
@@ -368,11 +551,12 @@ func sweep_hits(u: Unit, v: Unit) -> bool:
 
 ## Where u's blade first touched v this step (null = it didn't).
 func sweep_contact(u: Unit, v: Unit) -> Variant:
+	var node := String(u.cur.get("blade", "blade"))
 	var a: Dictionary = u.was["pose"]
-	var prev := blade(u, a, u.was["pos"], u.was["ang"])
+	var prev := blade(u, a, u.was["pos"], u.was["ang"], node)
 	for k in range(1, Acts.SWEEP_CHECKS + 1):
 		var t := float(k) / Acts.SWEEP_CHECKS
-		var now := blade(u, RigArt.blend(a, u.pose, t), Vector2(u.was["pos"]).lerp(u.pos, t), lerp_angle(u.was["ang"], u.ang, t))
+		var now := blade(u, RigArt.blend(a, u.pose, t), Vector2(u.was["pos"]).lerp(u.pos, t), lerp_angle(u.was["ang"], u.ang, t), node)
 		var vp: Vector2 = Vector2(v.was["pos"]).lerp(v.pos, t)
 		var hulls := []
 		for i in mini(prev.size(), now.size()):
@@ -416,13 +600,87 @@ func trace(u: Unit, a := {}) -> Array:
 		if st.has("to"):
 			p = st["to"]
 		p += Vector2.from_angle(ang) * float(st.get("fwd", 0.0))
-		var np: Dictionary = RigArt.pose(art(u), String(st["clip"]), float(st["frame"])) if st.has("clip") else rest(u)
-		var e := {"n": i - int(act["b"]) + 1, "ph": st["ph"], "pose": np, "pos": p, "ang": ang, "live": st.get("live", false), "swept": []}
+		var np := pose_for(u, st, act)
+		var e := {"n": i - int(act["b"]) + 1, "ph": st["ph"], "pose": np, "pos": p, "ang": ang, "live": st.get("live", false),
+			"swept": [], "blade": String(act.get("blade", "blade")), "shoot": st.get("shoot", "")}
 		if e["live"]:
-			e["swept"] = swept(u, pose, p0, a0, np, p, ang)
+			e["swept"] = swept(u, pose, p0, a0, np, p, ang, e["blade"])
 		out.append(e)
 		pose = np
 	return out
+
+
+# ---------------------------------------------------------------- shots
+
+## Where a shot from u starts.
+func shot_from(u: Unit, ang: float, p := Vector2.INF) -> Vector2:
+	return (u.pos if p == Vector2.INF else p) + Vector2.from_angle(ang) * (_radius(u) + 2.0)
+
+
+func _shoot(k: String, h: String) -> void:
+	shots.append({"k": k, "p": shot_from(hero, hero.ang), "from": shot_from(hero, hero.ang), "ang": hero.ang,
+		"left": int(Acts.SHOTS[k]["steps"]), "by": hero, "new": true})
+	if loaded.has(h):
+		loaded[h] = false
+		hero.pose = pose_for(hero, current(hero), hero.cur)
+
+
+## Every shot flies its step; one that reaches a body (not its shooter's)
+## hits it and is gone. Checked SWEEP_CHECKS times along, bodies moving.
+func _fly() -> void:
+	var keep := []
+	for s in shots:
+		var sp: Dictionary = Acts.SHOTS[s["k"]]
+		var a: Vector2 = s["p"]
+		var b := a + Vector2.from_angle(float(s["ang"])) * float(sp["speed"])
+		s["from"] = a
+		s["p"] = b
+		s.erase("new")
+		var hit: Unit = null
+		for k in range(1, Acts.SWEEP_CHECKS + 1):
+			var t := float(k) / Acts.SWEEP_CHECKS
+			var q := a.lerp(b, t)
+			for v in units:
+				if v == s["by"] or not v.alive():
+					continue
+				var vp: Vector2 = Vector2(v.was.get("pos", v.pos)).lerp(v.pos, t)
+				for c in v.body(vp, v.ang):
+					if q.distance_to(c[0]) <= float(c[1]) + float(sp["r"]):
+						hit = v
+				if hit != null:
+					break
+			if hit != null:
+				s["p"] = q
+				break
+			if not Acts.ARENA.has_point(q):
+				s["p"] = q
+				s["left"] = 0
+				break
+		if hit != null:
+			_hurt(hit, s["by"], int(sp["dmg"]))
+			if sp.has("burn"):
+				hit.burns[sp["burn"]] = int(Acts.BURNS[sp["burn"]]["steps"])
+			gone.append(s)
+			continue
+		s["left"] = int(s["left"]) - 1
+		if int(s["left"]) > 0:
+			keep.append(s)
+		else:
+			gone.append(s)
+	shots = keep
+
+
+
+## Burning and poison: their damage every step.
+func _burn() -> void:
+	for u in units:
+		for k in u.burns.keys():
+			var b: Dictionary = Acts.BURNS[k]
+			u.hp -= int(b["dmg"])
+			_number(u.pos + Vector2(rng.randf_range(-4, 4), -12), str(int(b["dmg"])), Color(b["col"]))
+			u.burns[k] = int(u.burns[k]) - 1
+			if int(u.burns[k]) <= 0:
+				u.burns.erase(k)
 
 
 # ---------------------------------------------------------------- effects

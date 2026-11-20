@@ -80,6 +80,43 @@ PLACEHOLDER
   pose were added to art/hero.rig.json by a script.
 - No wand / staff / spells yet; the menu is ready to list them.
 
+GEAR (2026-11-20)
+DECIDED (Martin)
+- New items: two-handed claymore and bow, one-handed crossbow, a staff.
+- Bow: ARROW, FIRE ARROW and HEAVY SHOT (its special, a heavier shot); it
+  draws back first (wind-up).
+- Crossbow: BOLT and POISON BOLT, no real wind-up, but it must be loaded
+  (RELOAD) before it shoots.
+- Staff: BOLT and HEAVY BOLT. Spells use stamina and have a cast limit per
+  rest; 20 for now.
+BUILT
+- Gear screen after THE KNIGHT: tap a hand to go through the items; a
+  two-handed item fills both hands. One-handed items go in either hand (the
+  left hand plays the clips mirrored).
+- Shots fly a set distance a step and hit the first body they reach. The
+  preview shows a mark where it'll be each step and the steps until it hits.
+- RELOAD from the menu happens at once (no aiming); a spell's casts left
+  show in its menu; empty crossbow or no casts: the hand's button wiggles.
+PLACEHOLDER
+- All the numbers (Acts.ITEMS, Acts.SHOTS, Acts.BURNS). Fire: 6 a step for
+  5 steps. Poison: 3 a step for 12 steps. Hit again: back to full.
+- Casts are per spell (20 each), for the whole fight (there's no rest yet).
+- The crossbow starts loaded; reload takes 4 steps; it can't be loaded with
+  one kind of bolt: you pick BOLT or POISON BOLT when you shoot.
+- Arrows and bolts are unlimited.
+- The heavy shot uses a normal arrow.
+- A shot in the air only moves when steps play (like his swings), so after
+  shooting you wait (or act) for it to arrive.
+- Items' looks and clips (made by a script, scratchpad make_hero.py; the
+  hero rig was rebuilt for this).
+
+STAGGER (2026-11-20)
+DECIDED (Martin): "we need a stagger mechanic".
+BUILT, PLACEHOLDER: the knight has 100 poise. Your hits' damage adds up
+(burns don't); at 100 he staggers: what he was doing stops, 4 steps reeling.
+8 steps without a hit and it's back to 0. A thin line under his health bar
+shows it filling. The hero's own stagger is still the 2 lost steps.
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 
