@@ -1,35 +1,41 @@
 class_name DuelView
 extends Node2D
-## Draws the duel: the arena, the knight's coming swing (a ghost of the
-## blade at each step still to come, the ground its hitting steps sweep
-## over, and the steps left on each), what the hero's tool would do at the
-## mouse, the puppets (posed part way through the step being shown,
-## main.u 0..1), then sparks, numbers and the bars.
+## Draws the world, moved by the camera (main.cam; main sets position):
+## the room (floor, pillars, walls), the fog (never seen: blank; seen
+## before: greyed), the enemies' coming swings (a ghost of the blade at
+## each step still to come, the ground its hitting steps sweep over, and
+## the steps left on each), what the hero's tool would do where you aim,
+## the puppets (posed part way through the step being shown, main.u 0..1),
+## shots, then sparks and numbers. Enemies, their swings and shots only
+## show where the hero can see. The side columns are DuelHud.
 
 var main = null
 
-const STEAL := Color("#6fb7a8")  # the stamina bar
+## The floor in sight: just lighter than the black it greys back to.
+const FLOOR := Color("#161514")
+
+var _fog_tex: ImageTexture
+var _fog_key := []  # what the fog texture was made from
+
+
+func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 
 func _draw() -> void:
-	if main.mode == "title":
-		_title()
-		return
-	if main.mode == "gear":
-		_gear()
+	if main.mode != "duel" or main.duel == null:
 		return
 	var d: Duel = main.duel
-	if d == null:
-		return
-	var sh: float = d.shake_amt
-	position = Vector2(round(randf_range(-sh, sh)), round(randf_range(-sh, sh)))
-	_arena()
+	_room(d)
+	_fog(d)
+	_walls(d)
 	_ghosts(d)
 	_preview(d)
-	var order: Array = d.units.filter(func(u): return u.alive())
+	var order: Array = d.units.filter(func(u): return u.alive() and (u == d.hero or d.can_see(u.pos)))
 	order.sort_custom(func(a, b): return a.pos.y < b.pos.y)
 	for u in order:
 		_unit(d, u)
+	_foe_bars(d)
 	_shots(d)
 	_reticles(d)
 	for s in d.sparks:
@@ -37,18 +43,70 @@ func _draw() -> void:
 	for n in d.numbers:
 		Pal.text(self, _px(n["p"]) - Vector2(Pal.width(n["s"]) / 2.0, 0), n["s"], n["col"])
 	_guard(d)
-	_bars(d)
-	_tools(d)
-	if d.result != "":
-		_result(d)
 
 
-func _arena() -> void:
-	var a := Acts.ARENA
-	draw_rect(Rect2(a.position - Vector2.ONE, a.size + Vector2(2, 2)), Pal.DARK, false)
+## The floor's dots and the pillars (the fog goes over them).
+func _room(d: Duel) -> void:
+	var a := d.area
+	draw_rect(a, FLOOR)
 	for x in range(int(a.position.x) + 8, int(a.end.x), 16):
 		for y in range(int(a.position.y) + 8, int(a.end.y), 16):
 			draw_rect(Rect2(x + ((y / 16) % 2) * 8, y, 1, 1), Pal.DARK)
+	for pl in d.pillars:
+		draw_rect(pl, Pal.DARK)
+		draw_rect(Rect2(pl).grow(-0.5), Pal.DIM, false)
+
+
+## Never seen: blank. Seen before but not now: greyed.
+func _fog(d: Duel) -> void:
+	var key := [d, d.room_i, d.step_n]
+	if key != _fog_key:
+		_fog_key = key
+		var img := Image.create(d.fog_size.x, d.fog_size.y, false, Image.FORMAT_RGBA8)
+		var greyed := Color(Pal.BG, 0.65)
+		for y in d.fog_size.y:
+			for x in d.fog_size.x:
+				var f := d.fog_at(x, y)
+				img.set_pixel(x, y, Color(0, 0, 0, 0) if f == 2 else (greyed if f == 1 else Pal.BG))
+		if _fog_tex == null or _fog_tex.get_size() != Vector2(img.get_size()):
+			_fog_tex = ImageTexture.create_from_image(img)
+		else:
+			_fog_tex.update(img)
+	draw_texture_rect(_fog_tex, Rect2(d.area.position, Vector2(d.fog_size) * Acts.FOG), false)
+
+
+## The room's walls, a square at a time, as seen as the squares inside
+## them; the doorway is a gap.
+func _walls(d: Duel) -> void:
+	var a := d.area
+	var f := float(Acts.FOG)
+	var n := d.fog_size
+	for x in n.x:
+		for e in [[0, a.position.y - 1.0], [n.y - 1, a.end.y]]:
+			var c := _wall_col(d.fog_at(x, e[0]))
+			if c.a > 0.0:
+				draw_rect(Rect2(a.position.x + x * f, e[1], f, 1), c)
+	for y in n.y:
+		var yy := a.position.y + y * f
+		for e in [[0, a.position.x - 1.0], [n.x - 1, a.end.x]]:
+			if e[0] == n.x - 1 and not d.door.is_empty() and yy + f > float(d.door[0]) and yy < float(d.door[1]):
+				continue  # the doorway
+			var c := _wall_col(d.fog_at(e[0], y))
+			if c.a > 0.0:
+				draw_rect(Rect2(e[1], yy, 1, f), c)
+
+
+func _wall_col(fog: int) -> Color:
+	return [Color(0, 0, 0, 0), Pal.DARK, Pal.DIM][fog]
+
+
+## A small health bar over the smaller enemies (seen), once hurt.
+func _foe_bars(d: Duel) -> void:
+	for f in d.foes:
+		if f != d.knight and f.alive() and f.hp < f.max_hp and d.can_see(f.pos):
+			var at := _px(f.pos + Vector2(-5, -11))
+			draw_rect(Rect2(at, Vector2(10, 1)), Pal.DARK)
+			draw_rect(Rect2(at, Vector2(round(10.0 * f.hp / f.max_hp), 1)), Pal.DIM)
 
 
 ## Every enemy's swing still to come: the ground each hitting step sweeps
@@ -56,7 +114,7 @@ func _arena() -> void:
 ## each hitting step the steps left.
 func _ghosts(d: Duel) -> void:
 	for k in d.foes:
-		if k.alive():
+		if k.alive() and d.can_see(k.pos):
 			_ghost(d, k)
 
 
@@ -103,7 +161,7 @@ func _preview(d: Duel) -> void:
 		return
 	if main.picking or (main.touch and not main.aimed and not (d.target != null and d.auto_aims(main.tool))):
 		return
-	var a: Dictionary = d.shape(main.tool, main.hover)
+	var a: Dictionary = d.shape(main.tool, main.aim())
 	if a.is_empty():
 		return
 	var sp := d.spec(main.tool)
@@ -129,7 +187,7 @@ func _preview(d: Duel) -> void:
 	if main.tool == "roll":
 		# Where the roll is safe from hits.
 		for e in tr:
-			if d.shape("roll", main.hover)["steps"][int(e["n"]) - 1].get("safe", false):
+			if d.shape("roll", main.aim())["steps"][int(e["n"]) - 1].get("safe", false):
 				_ring(e["pos"], Duel._radius(h), Pal.INK.darkened(0.6))
 
 
@@ -162,9 +220,9 @@ func _reticles(d: Duel) -> void:
 	var pulse: float = 1.0 + round(sin(main.clock * 8.0) + 1.0)
 	for u in d.units:
 		if u.side == "enemy" and u.alive():
-			_reticle(u.pos, Duel._radius(u) + 2.0 + pulse, Pal.INK if d.enemy_at(main.hover) == u else Pal.DIM)
+			_reticle(u.pos, Duel._radius(u) + 2.0 + pulse, Pal.INK if d.enemy_at(main.aim()) == u else Pal.DIM)
 	if not main.touch:
-		_reticle(main.hover, 3.0, Pal.INK)
+		_reticle(main.aim(), 3.0, Pal.INK)
 
 
 ## Four corner ticks round c, r px out.
@@ -192,89 +250,6 @@ func _guard(d: Duel) -> void:
 	draw_arc(_px(p), Duel._radius(h) + 4.0, a - half, a + half, 16, Pal.INK.darkened(0.5))
 
 
-## Health (and stamina, flasks) along the top.
-func _bars(d: Duel) -> void:
-	var h := d.hero
-	var wx := _wig(d, "stamina")
-	draw_rect(Rect2(4, 3, 100, 4), Pal.DARK)
-	draw_rect(Rect2(4, 3, round(100.0 * maxf(h.hp, 0) / h.max_hp), 4), Pal.INK)
-	draw_rect(Rect2(4 + wx, 9, 100, 2), Pal.DARK)
-	draw_rect(Rect2(4 + wx, 9, round(100.0 * d.stamina / float(Acts.HERO["stamina"])), 2), STEAL)
-	var fx := _wig(d, "flasks")
-	for i in int(Acts.HERO["flasks"]):
-		draw_rect(Rect2(110 + i * 5 + fx, 3, 3, 4), Pal.DANGER if i < d.flasks else Pal.DARK)
-	for f in d.foes:
-		if f != d.knight and f.alive() and f.hp < f.max_hp:
-			# A small bar over the smaller enemies, once hurt.
-			var at := _px(f.pos + Vector2(-5, -11))
-			draw_rect(Rect2(at, Vector2(10, 1)), Pal.DARK)
-			draw_rect(Rect2(at, Vector2(round(10.0 * f.hp / f.max_hp), 1)), Pal.DIM)
-	var k := d.knight
-	if k == null:
-		return
-	draw_rect(Rect2(280, 3, 100, 4), Pal.DARK)
-	draw_rect(Rect2(280, 3, round(100.0 * maxf(k.hp, 0) / k.max_hp), 4), Pal.DIM)
-	# Poise: how near he is to staggering.
-	draw_rect(Rect2(280, 8, round(100.0 * minf(float(k.taken) / float(Acts.KNIGHT["poise"]), 1.0)), 1), Pal.INK.darkened(0.3))
-	# Burning, poisoned: a pip each under his bar, as long as steps are left.
-	var y := 11
-	for b in k.burns:
-		draw_rect(Rect2(380 - int(k.burns[b]) * 2, y, int(k.burns[b]) * 2, 1), Color(Acts.BURNS[b]["col"]))
-		y += 2
-
-
-func _wig(d: Duel, k: String) -> float:
-	return round(sin(main.clock * 60.0) * 2.0) if d.wiggle.has(k) else 0.0
-
-
-## The buttons along the bottom (main.buttons()), and a hand's menu when
-## it's open. A hand's button, when its item has the tool, says which.
-func _tools(d: Duel) -> void:
-	for b in main.buttons():
-		var id: String = b[1]
-		var hand := id.trim_prefix("hand:") if id.begins_with("hand:") else ""
-		var picked: bool = main.tool == id or (hand != "" and main.hand_of(main.tool) == hand)
-		var col: Color = Pal.INK if picked or main.held == id or (hand != "" and main.menu == hand) else Pal.DIM
-		if (id == "roll" and d.cost(id) > d.stamina) or (id == "flask" and d.flasks <= 0):
-			col = Pal.DIM.darkened(0.45)
-		var r: Rect2 = b[0]
-		r.position.x += _wig(d, id)
-		_button(r, b[2], col, picked, main.tool.split(":")[1].to_upper() if hand != "" and picked else "")
-	for b in main.menu_buttons():
-		var id: String = b[1]
-		var sp := d.spec(id)
-		var no: bool = d.cost(id) > d.stamina or d.casts_left(id) == 0 \
-			or (sp.get("loaded", false) and not d.is_loaded(main.hand_of(id)))
-		_button(b[0], b[2], Pal.DIM.darkened(0.45) if no else Pal.INK, main.tool == id)
-	for b in main.toggle_buttons():
-		var id: String = b[1]
-		var on: bool = main.toggled(id) or (id == "lock" and main.picking and fmod(main.clock, 0.6) < 0.3)
-		var col: Color = Pal.INK if on else (Pal.DIM if main.can_toggle(id) else Pal.DIM.darkened(0.45))
-		var r: Rect2 = b[0]
-		r.position.x += _wig(d, id)
-		_button(r, b[2], col, on)
-	var s := str(d.step_n)
-	Pal.text(self, Vector2(380 - Pal.width(s), 160), s, Pal.DARK.lightened(0.2))
-
-
-## A button; `under` is a second, dimmer line below the label.
-func _button(r: Rect2, label: String, col: Color, picked := false, under := "") -> void:
-	draw_rect(r, Pal.BG)
-	draw_rect(r.grow(-0.5), col if picked else Pal.DARK, false)
-	var y: float = round(r.size.y / 2.0) - (5.0 if under != "" else 2.0)
-	Pal.text(self, r.position + Vector2(round((r.size.x - Pal.width(label)) / 2.0), y), label, col)
-	if under != "":
-		Pal.text(self, r.position + Vector2(round((r.size.x - Pal.width(under)) / 2.0), y + 6.0), under, Pal.DIM)
-
-
-func _result(d: Duel) -> void:
-	draw_rect(Rect2(0, 80, 384, 40), Color(0, 0, 0, 0.85))
-	var s := "THE KNIGHT FALLS" if d.result == "win" else "YOU FALL"
-	var w := Pal.width(s, 2)
-	Pal.text(self, Vector2(192 - w / 2.0, 88), s, Pal.INK if d.result == "win" else Pal.DANGER, 2)
-	Pal.text(self, Vector2(192 - Pal.width("SPACE") / 2.0, 104), "SPACE", Pal.DIM)
-
-
 ## Arrows, bolts and spells in flight (between where they were and are).
 func _shots(d: Duel) -> void:
 	var t: float = main.u
@@ -282,7 +257,7 @@ func _shots(d: Duel) -> void:
 		var sp: Dictionary = Acts.SHOTS[s["k"]]
 		var col := Color(sp["col"])
 		var p: Vector2 = Vector2(s["from"]).lerp(s["p"], t)
-		if d.gone.has(s) and t >= 1.0:
+		if (d.gone.has(s) and t >= 1.0) or not d.can_see(p):
 			continue
 		var f := Vector2.from_angle(float(s["ang"]))
 		if float(sp["r"]) >= 2.0:
@@ -300,7 +275,7 @@ func _shot_path(d: Duel, k: String, ang: float, wind: int) -> void:
 	var col := Pal.INK.darkened(0.45)
 	var k_at: Array = []
 	for e in d.foes:
-		if e.alive():
+		if e.alive() and d.can_see(e.pos):
 			k_at.append_array(e.body())
 	var left := float(sp["range"])
 	for i in ceili(left / float(sp["speed"])):
@@ -313,7 +288,7 @@ func _shot_path(d: Duel, k: String, ang: float, wind: int) -> void:
 				if x.distance_to(c[0]) <= float(c[1]) + float(sp["r"]):
 					hit = true
 					q = x
-			if hit or not Acts.ARENA.has_point(x):
+			if hit or not d.open_at(x):
 				q = x
 				break
 		_dots(p, q, col)
@@ -322,82 +297,9 @@ func _shot_path(d: Duel, k: String, ang: float, wind: int) -> void:
 			var s := str(wind + i + 1)
 			Pal.text(self, _px(q + Vector2(-1, -18)), s, Pal.INK)
 			return
-		if not Acts.ARENA.has_point(q):
+		if not d.open_at(q):
 			return
 		p = q
-
-
-func _gear() -> void:
-	position = Vector2.ZERO
-	Pal.text(self, Vector2(52 - Pal.width("LEFT") / 2.0, 42), "LEFT", Pal.DIM)
-	Pal.text(self, Vector2(332 - Pal.width("RIGHT") / 2.0, 42), "RIGHT", Pal.DIM)
-	var sel: String = "slot:" + main.slot
-	var held := String(main.slot)
-	var in_slot: String = main.gear[held.left(-1)][int(held.right(1))]
-	for b in main.gear_buttons():
-		var id: String = b[1]
-		var r: Rect2 = b[0]
-		if id.begins_with("slot:") or id.begins_with("item:"):
-			var on := id == sel or id == "item:" + in_slot
-			var over: bool = r.has_point(main.hover)
-			draw_rect(r, Pal.BG)
-			draw_rect(r.grow(-0.5), Pal.INK if on else (Pal.DIM if over else Pal.DARK), false)
-			_icon(String(b[2]), r)
-		else:
-			_button(r, b[2], Pal.INK if b[1] != "back" else Pal.DIM, b[1] == "fight")
-	var name: String = main.gear_name()
-	Pal.text(self, Vector2(192 - Pal.width(name) / 2.0, 130), name, Pal.INK)
-
-
-## Item th drawn in r from the hero's puppet, as big as whole pixels let
-## it fit; long ones (over 14 px) lie corner to corner.
-func _icon(th: String, r: Rect2) -> void:
-	var it: Dictionary = Acts.ITEMS[th]
-	var path := String(Acts.DUEL_UNITS["hero"]["art"])
-	var only := []
-	for n in it["nodes"]:
-		only.append(Duel.node_of(n, it, "right"))
-	var pose := {}
-	for n in it.get("look", {}):
-		pose[n] = {"part": it["look"][n]}
-	var room := r.size.x - 6.0
-	var ang := 0.0
-	var box := _icon_box(path, only, pose, Transform2D.IDENTITY)
-	if box.size.x > 14.0:
-		ang = -PI / 4.0
-		box = _icon_box(path, only, pose, Transform2D(ang, Vector2.ZERO))
-	var sc := clampf(floorf(room / maxf(box.size.x, box.size.y)), 1.0, 3.0)
-	var t := Transform2D(ang, Vector2(sc, sc), 0.0, Vector2.ZERO)
-	box = _icon_box(path, only, pose, t)
-	t.origin = (r.get_center() - box.get_center()).round()
-	RigArt.draw(self, path, Transform2D.IDENTITY, {"only": only, "pose": pose, "world": {"hand_r": t, "hand_l": t}})
-
-
-## The box an icon's shapes cover, its hand placed by t.
-func _icon_box(path: String, only: Array, pose: Dictionary, t: Transform2D) -> Rect2:
-	var box := Rect2()
-	var first := true
-	for e in RigArt.geometry(path, Transform2D.IDENTITY, {"only": only, "pose": pose, "world": {"hand_r": t, "hand_l": t}}):
-		for poly in e["polys"]:
-			for q in poly:
-				if first:
-					box = Rect2(q, Vector2.ZERO)
-					first = false
-				else:
-					box = box.expand(q)
-	return box
-
-
-func _title() -> void:
-	position = Vector2.ZERO
-	for b in main.title_buttons():
-		var col := Pal.DIM
-		if b[1] == "knight" and fmod(main.clock, 1.0) >= 0.8:
-			col = Pal.INK
-		elif b[1] == "update" and main.update_state in ["new", "downloading", "ready", "download_failed"]:
-			col = Pal.INK
-		_button(b[0], b[2], col)
-	Pal.text(self, Vector2(4, 203), "V" + Update.current(), Pal.DARK.lightened(0.2))
 
 
 # ---------------------------------------------------------------- helpers

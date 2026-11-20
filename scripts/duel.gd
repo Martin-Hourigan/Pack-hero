@@ -784,10 +784,11 @@ func at_door() -> bool:
 
 # ---------------------------------------------------------------- sight
 
-## Whether a straight line from a to b is clear of the pillars.
-func los(a: Vector2, b: Vector2) -> bool:
+## Whether a straight line from a to b is clear of the pillars (but
+## `skip`).
+func los(a: Vector2, b: Vector2, skip := Rect2()) -> bool:
 	for pl in pillars:
-		if _crosses(a, b, pl):
+		if pl != skip and _crosses(a, b, pl):
 			return false
 	return true
 
@@ -834,18 +835,19 @@ func _look() -> void:
 		for x in fog_size.x:
 			var i := y * fog_size.x + x
 			var c := area.position + Vector2((x + 0.5) * f, (y + 0.5) * f)
-			var ok := los(hero.pos, c) and not _in_pillar(c)
+			var ok := los(hero.pos, c, _pillar_at(c))  # (a pillar's seen if what's before it is)
 			sight[i] = 1 if ok else 0
 			if ok:
 				seen[i] = 1
 	memory[room_i] = seen
 
 
-func _in_pillar(p: Vector2) -> bool:
+## The pillar p is in (an empty Rect2 if none).
+func _pillar_at(p: Vector2) -> Rect2:
 	for pl in pillars:
 		if Rect2(pl).has_point(p):
-			return true
-	return false
+			return pl
+	return Rect2()
 
 
 ## Square (x, y): 2 seen now, 1 seen before, 0 never.

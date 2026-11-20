@@ -9,7 +9,12 @@ extends Node2D
 ## pick it, then an item to put it there. The name of what the mouse is
 ## over (on the phone, what was last tapped) shows under the grid. FIGHT
 ## or Space.
-## In the duel: 1 MOVE, 2 ROLL, 5 FLASK; 3 and 4 open the left and right
+## In the fight: the view (VIEW) is a square in the middle, the camera on
+## the hero (as far as the room goes); drag on it (the right mouse button
+## on PC) to look around, as far as the hero being at its edge; doing
+## anything puts it back. The buttons are in the columns either side: the
+## left hand's on the left, the right hand's on the right.
+## 1 MOVE, 2 ROLL, 5 FLASK; 3 and 4 open the left and right
 ## hand's menus (the item's name on the button; the menu lists what it can
 ## do: LIGHT, HEAVY, BLOCK, ARROW...; spells with their casts left), and
 ## picking one makes it the tool (RELOAD, SWAP, TWO HANDS, ONE HAND and
@@ -44,6 +49,8 @@ const TOGGLES := [["Q", "lock", "LOCK"], ["E", "two", "2H"], ["F", "guard", "GUA
 const TOGGLE_KEYS := [KEY_Q, KEY_E, KEY_F]
 const NOT_IN_MENU := ["block", "two hands", "one hand"]  # the toggles do these
 const SAME_TAP := 10.0  # px: a second tap this near the aim does it
+const VIEW := Rect2(84, 0, 216, 216)  # the world's square on the screen
+const DRAG := 6.0  # px a press moves before it's a drag (to look around)
 
 var duel: Duel
 var mode := "title"  # title, gear, duel
@@ -54,6 +61,11 @@ var tool := "move"
 var hover := Vector2.ZERO
 var u := 1.0  # how far the step being shown has played out (1 = still)
 var view: DuelView
+var hud: DuelHud
+var cam := Vector2.ZERO  # the world point at VIEW's top left
+var pan := Vector2.ZERO  # how far you've dragged the view off the hero
+var pressed_at := Vector2.INF  # a press on the view, until it's let go
+var dragged := false  # that press has become a drag
 var touch := false  # taps: aim, then tap again to do it
 var aimed := false  # touch: a spot has been tapped
 var held := ""  # the button being held down
@@ -80,6 +92,9 @@ func _ready() -> void:
 	view = DuelView.new()
 	view.main = self
 	add_child(view)
+	hud = DuelHud.new()
+	hud.main = self
+	add_child(hud)
 	# an update downloaded last time has been installed (or given up on)
 	if FileAccess.file_exists(Update.APK):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(Update.APK))
@@ -137,6 +152,7 @@ func begin() -> void:
 	aimed = false
 	menu = ""
 	picking = false
+	pan = Vector2.ZERO
 
 
 func _process(dt: float) -> void:
@@ -155,12 +171,44 @@ func _process(dt: float) -> void:
 		if ":" in tool and duel.spec(tool).is_empty():
 			tool = "move"  # its item has been put away or changed
 		duel.fx(dt)
+		_camera()
 		u = minf(u + dt / STEP_T, 1.0)
 		if u >= 1.0 and duel.result == "" and not duel.hero.idle():
 			_step()
 		elif held == "wait" and duel.result == "" and duel.hero.idle():
 			act("wait", duel.hero.pos)
 	view.queue_redraw()
+	hud.queue_redraw()
+
+
+## The camera: on the hero (where he's drawn), kept to the room (a room
+## smaller than the view sits in its middle), moved by `pan`, but never so
+## far the hero's off the view.
+func _camera() -> void:
+	var h := duel.hero
+	var p := h.pos if h.was.is_empty() or u >= 1.0 else Vector2(h.was["pos"]).lerp(h.pos, u)
+	var a := duel.area.grow(12)
+	var c := p - VIEW.size / 2.0
+	for i in 2:
+		if a.size[i] <= VIEW.size[i]:
+			c[i] = a.position[i] + (a.size[i] - VIEW.size[i]) / 2.0
+		else:
+			c[i] = clampf(c[i], a.position[i], a.end[i] - VIEW.size[i])
+	var want := (c + pan).clamp(p - VIEW.size + Vector2(8, 8), p - Vector2(8, 8))
+	pan = want - c
+	cam = want.round()
+	var sh: float = duel.shake_amt
+	view.position = VIEW.position - cam + Vector2(round(randf_range(-sh, sh)), round(randf_range(-sh, sh)))
+
+
+## Screen point p in the world.
+func to_world(p: Vector2) -> Vector2:
+	return p - VIEW.position + cam
+
+
+## Where you're aiming, in the world.
+func aim() -> Vector2:
+	return to_world(hover)
 
 
 func _step() -> void:
@@ -192,39 +240,55 @@ func _unhandled_input(ev: InputEvent) -> void:
 			_press(get_global_mouse_position())
 		else:
 			held = ""
-	elif ev is InputEventMouseMotion and touch and aimed and held == "" and ev.button_mask & MOUSE_BUTTON_MASK_LEFT:
-		hover = get_global_mouse_position()  # dragging moves the aim
+			if pressed_at != Vector2.INF and not dragged and mode == "duel" and duel != null:
+				_tap_view(get_global_mouse_position())  # (on the phone a tap is done when let go)
+			pressed_at = Vector2.INF
+	elif ev is InputEventMouseMotion and mode == "duel":
+		if ev.button_mask & MOUSE_BUTTON_MASK_RIGHT:
+			pan -= ev.relative  # PC: the right button drags the view
+		elif pressed_at != Vector2.INF and ev.button_mask & MOUSE_BUTTON_MASK_LEFT:
+			var p := get_global_mouse_position()
+			if p.distance_to(pressed_at) > DRAG:
+				dragged = true
+			if dragged:
+				if aimed:
+					hover = p  # dragging moves the aim
+				else:
+					pan -= ev.relative
 
 
-## The buttons along the bottom of the duel: [rect, id, label]. A hand's
-## button is named for what's in it.
+## Where each button is in the side columns: left MOVE, ROLL, the left
+## hand; right FLASK, WAIT, the right hand.
+const PLACES := {"move": Rect2(4, 28, 76, 18), "roll": Rect2(4, 50, 76, 18), "hand:left": Rect2(4, 80, 76, 22),
+	"flask": Rect2(304, 28, 76, 18), "wait": Rect2(304, 50, 76, 18), "hand:right": Rect2(304, 80, 76, 22),
+	"back": Rect2(4, 194, 22, 18)}
+
+
+## The fight's buttons: [rect, id, label]. A hand's button is named for
+## what's in it (held in both hands: only that hand's).
 func buttons() -> Array:
 	var out := []
-	var x := 4.0
 	for t in TOOLS:
 		var id: String = t[1]
-		var w := 72.0 if id.begins_with("hand:") else 40.0
 		var label := id.to_upper()
 		if id.begins_with("hand:"):
 			var h := id.trim_prefix("hand:")
-			if duel.hands().size() == 1:
-				if h != duel.hands()[0]:
-					continue  # one wide button
-				w = 148.0
+			if not h in duel.hands():
+				continue
 			label = duel.item(h)["name"]
-		out.append([Rect2(x, 188, w, 20), id, label if touch else "%s %s" % [t[0], label]])
-		x += w + 4
-	out.append([Rect2(x, 188, 40, 20), "wait", "WAIT" if touch else "SPC WAIT"])
-	out.append([Rect2(358, 188, 22, 20), "back", "<"])
+		out.append([PLACES[id], id, label if touch else "%s %s" % [t[0], label]])
+	out.append([PLACES["wait"], "wait", "WAIT" if touch else "SPC WAIT"])
+	out.append([PLACES["back"], "back", "<"])
 	return out
 
 
-## The toggles, above the bottom right: [rect, id, label].
+## The toggles: LOCK on the left, 2H and GUARD on the right: [rect, id,
+## label].
+const TOGGLE_PLACES := {"lock": Rect2(4, 140, 76, 16), "two": Rect2(304, 140, 76, 16), "guard": Rect2(304, 160, 76, 16)}
 func toggle_buttons() -> Array:
 	var out := []
-	for i in TOGGLES.size():
-		var t: Array = TOGGLES[i]
-		out.append([Rect2(254 + 42 * i, 168, 40, 16), t[1], t[2] if touch else "%s %s" % [t[0], t[2]]])
+	for t in TOGGLES:
+		out.append([TOGGLE_PLACES[t[1]], t[1], t[2] if touch else "%s %s" % [t[0], t[2]]])
 	return out
 
 
@@ -277,7 +341,8 @@ func _hand_key(h: String) -> String:
 	return duel.hands()[0] if duel.hands().size() == 1 else h
 
 
-## The open hand menu's options, stacked above its button: [rect, id, label].
+## The open hand menu's options, down from its button's top, on the view
+## beside it: [rect, id, label].
 func menu_buttons() -> Array:
 	if menu == "":
 		return []
@@ -287,13 +352,14 @@ func menu_buttons() -> Array:
 			at = b[0]
 	var out := []
 	var does: Array = duel.options(menu).keys().filter(func(o): return not o in NOT_IN_MENU)
-	var w := minf(at.size.x, 80.0)
+	var w := 80.0
+	var x := VIEW.position.x + 2.0 if at.position.x < VIEW.position.x else VIEW.end.x - 2.0 - w
 	for i in does.size():
 		var id := menu + ":" + String(does[i])
 		var label := String(does[i]).to_upper()
 		if duel.casts_left(id) >= 0:
 			label += " %d" % duel.casts_left(id)
-		out.append([Rect2(at.position.x, at.position.y - 18 * (does.size() - i), w, 16), id, label])
+		out.append([Rect2(x, at.position.y + 18 * i, w, 16), id, label])
 	return out
 
 
@@ -311,8 +377,8 @@ func gear_buttons() -> Array:
 			out.append([Rect2(x, 52 + (CELL + 4) * i, CELL, CELL), "slot:" + h + str(i), th])
 	for i in Acts.GEAR.size():
 		var th: String = Acts.GEAR[i]
-		var x := 192.0 - 2.0 * (CELL + 2) + (CELL + 2) * (i % 4)
-		out.append([Rect2(x, 52 + (CELL + 4) * (i / 4), CELL, CELL), "item:" + th, th])
+		var x := 192.0 - 2.5 * (CELL + 2) + (CELL + 2) * (i % 5)
+		out.append([Rect2(x, 52 + (CELL + 4) * (i / 5), CELL, CELL), "item:" + th, th])
 	out.append([Rect2(132, 150, 120, 20), "fight", "FIGHT" if touch else "SPACE  FIGHT"])
 	out.append([Rect2(358, 188, 22, 20), "back", "<"])
 	return out
@@ -389,13 +455,14 @@ func _press(p: Vector2) -> void:
 	if tg != "":
 		toggle(tg)
 		return
-	if picking and _hit(buttons(), p) == "":
-		var e := duel.enemy_at(p, 8.0 if touch else 4.0)
-		if e != null:
-			duel.target = e
-			picking = false
-		return  # (anywhere else: still picking)
 	var b := _hit(buttons(), p)
+	if b == "" and VIEW.has_point(p):
+		if touch:
+			pressed_at = p  # a tap, or a drag to look around
+			dragged = false
+		else:
+			_tap_view(p)
+		return
 	if b.begins_with("hand:"):
 		menu = b.trim_prefix("hand:")
 	elif b == "back":
@@ -408,10 +475,22 @@ func _press(p: Vector2) -> void:
 	elif b != "":
 		tool = b
 		aimed = false
-	elif not touch or (duel.target != null and duel.auto_aims(tool)):
-		act(tool, p)
+
+
+## A tap (click) on the view at screen point p: picking LOCK's enemy, or the
+## tool (on the phone: the first tap aims, a second on the same spot does
+## it).
+func _tap_view(p: Vector2) -> void:
+	if picking:
+		var e := duel.enemy_at(to_world(p), 8.0 if touch else 4.0)
+		if e != null:
+			duel.target = e
+			picking = false
+		return  # (anywhere else: still picking)
+	if not touch or (duel.target != null and duel.auto_aims(tool)):
+		act(tool, to_world(p))
 	elif aimed and p.distance_to(hover) <= SAME_TAP:
-		if act(tool, hover):
+		if act(tool, aim()):
 			aimed = false
 	else:
 		hover = p
@@ -467,6 +546,7 @@ func act(k: String, at: Vector2) -> bool:
 		return false
 	var ok := duel.plan(k, at)
 	if ok:
+		pan = Vector2.ZERO
 		_step()
 	return ok
 

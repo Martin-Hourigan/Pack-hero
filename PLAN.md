@@ -191,8 +191,8 @@ PLACEHOLDER
 GEAR GRID (2026-11-20)
 DECIDED (Martin): the gear screen is a grid of icons; hovering shows the
 name (it used to cycle through them all).
-BUILT: two slots a hand down each side (top held first), the 8 items in a
-4x2 grid between. Tap a slot (it lights), then an item to put it there;
+BUILT: two slots a hand down each side (top held first), the items in a
+grid 5 across between. Tap a slot (it lights), then an item to put it there;
 the item in the picked slot lights in the grid. The name of what the mouse
 is over shows under the grid; on the phone (no hover), what was last
 tapped.
@@ -215,20 +215,37 @@ their room; dying = back to room 1, no refills between rooms (a rest spot
 later). Basic enemies: SOLDIER (short sword, quick, weak, staggers easily),
 SPEARMAN (keeps a bit of distance, thrusts), ARCHER (keeps away, shoots);
 2, 3, 4 a room. Enemies can't hurt each other.
-Also wanted (Martin): line of sight, panning around, ranged attack limits
-(a GREATBOW reaching the farthest). Proposed, waiting on his OK: rooms up
-to 2x the screen, camera follows, drag to pan; see only what the hero can
-see (walls/pillars hide), enemies notice you when they see you; lock only
-what you can see; ranges staff 100, crossbow 120, bow 160, greatbow 240 px;
-greatbow two-handed ARROW + HEAVY SHOT, longer wind-up, harder hits.
+Also (Martin): line of sight: never seen = blank, seen before = greyed (you
+see the room, not the enemies), remembered after dying. Pan as far as the
+hero being at the edge of the screen. The menus down the sides so the view
+is more square. Ranged attacks have limits; a GREATBOW reaches the
+farthest. Agreed: rooms up to 2x the screen, the camera follows, drag to
+look; enemies notice you once they see you; lock only what you can see;
+ranges staff 100, crossbow 120, bow 160, greatbow 240 px; greatbow
+two-handed ARROW + HEAVY SHOT, longer wind-up, harder hits, no fire arrow.
+BUILT (step 3-4): the run (Acts.ROOMS): 4 rooms, doorways in the right
+wall, pillars in rooms 2 and 3, the knight in room 4; dying starts again
+in room 1, the hero's seen squares kept. Sight in 4 px squares (Acts.FOG):
+the floor in sight is very dark grey, seen before is greyed back toward
+black, never seen is black (walls too); enemies, their swings and shots
+only show where you can see. The view is a 216 px square in the middle;
+the left column has health, stamina, flasks, MOVE, ROLL, the left hand,
+LOCK, back; the right column the knight's health (in his room), FLASK,
+WAIT, the right hand, 2H, GUARD. A hand's menu opens on the view beside
+its button. Drag the view (right mouse on PC) to look around; doing
+anything puts it back. On the phone a tap on the view is done when you let
+go (so a drag can look around instead). Shots stop at their range; the
+aim preview too.
 BUILT (step 1-2): any number of enemies in a fight (Acts.FOES), each
 choosing its own attacks; the hero's swing hits every enemy it sweeps; a
 walk stops when any enemy starts an attack; won when all are dead. Their
 swings show as ghosts like the knight's; the smaller ones get a small
 health bar over them once hurt. Puppets by scratchpad make_foes.py.
 PLACEHOLDER: all their numbers (Acts.SOLDIER / SPEARMAN / ARCHER), looks,
-and AI; an archer waits 3 steps after each shot; enemies always know where
-you are (until line of sight). Dev: --foes=soldier,spearman,archer.
+and AI; an archer waits 3 steps after each shot. The rooms' sizes, pillars
+and who's where. Sight has no distance limit (a room with no pillars is
+all seen at once). Pillars don't stop blades. The camera can look past the
+room's edge (blank). Greatbow numbers and look. Dev: --foes=..., --room=N.
 
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
