@@ -37,7 +37,7 @@ HERO, KNIGHT)
   degrees a wind-up step toward you, then is locked. Walks 3 px a step.
   600 health; hits 50 / 40 / 80. Greatsword blade 36 px.
 - Hero: 1 MOVE (4 px a step), 2 ROLL (4 steps of 8 px; hits miss on the
-  first 2), 3 LIGHT (wind 1, swing 4), 4 HEAVY (wind 3, swing 5 hitting on
+  first 2), LIGHT (wind 1, swing 4), HEAVY (wind 3, swing 5 hitting on
   the last 2, steps in), 5 FLASK (2, heal 100, 5 steps), SPACE wait a
   step. 200 health, stamina 100 (light 20, heavy 35, roll 25; 4 back a
   step when not attacking, rolling or drinking). A hit pushes you 6 px back
@@ -57,8 +57,31 @@ PLACEHOLDER
 - The ghosts show the whole swing from his current facing; the wind-up's
   turning can still move it.
 
+HANDS (2026-11-20)
+DECIDED (Martin)
+- Both hands can hold something. The bottom row has a left hand and a right
+  hand button, named for the item in it (LONGSWORD, KITE SHIELD, WOODEN
+  STAFF; shortened if too long). Tapping one opens a menu of what the item
+  can do: a weapon its light and heavy, a shield BLOCK, a wand or staff its
+  spells.
+- Kite shield BLOCK: a hit from the front does no damage. A block is a step
+  facing the way you pick; the tool stays picked until you pick another, so
+  you keep blocking a step at a time.
+BUILT: left hand kite shield (BLOCK), right hand longsword (LIGHT, HEAVY).
+A hand's button shows its picked option underneath. PC: 3 and 4 open the
+left and right hand's menus.
+PLACEHOLDER
+- "The front" = the half in front of where he faces (180 degrees). Where
+  the blade first touches him decides it.
+- A block costs no stamina, and stamina comes back while blocking.
+- A blocked swing is spent: it can't come round and hit from the side.
+- On the phone a block is one tap (no second tap to confirm).
+- The hero now holds the longsword in one hand; the shield and the block
+  pose were added to art/hero.rig.json by a script.
+- No wand / staff / spells yet; the menu is ready to list them.
+
 OPEN
-- Martin hasn't played it.
+- Martin played v0.1 on his phone (2026-11-20).
 
 ---
 

@@ -9,9 +9,10 @@ extends RefCounted
 ## Acts.KNIGHT.
 ##
 ## An action: {k, label, steps, b, hit (it has landed)}. A step:
-## {ph: wind / act / rec / move / roll / drink / wait / hurt, clip, frame,
+## {ph: wind / act / rec / move / roll / drink / wait / hurt / block, clip, frame,
 ## live (the blade hits), safe (hits miss you), to (walk there), fwd (px
-## forward), track (turn toward the hero), dmg, heal}.
+## forward), track (turn toward the hero), dmg, heal, guard (hits from the
+## front do nothing)}.
 
 var hero: Unit
 var knight: Unit
@@ -118,6 +119,8 @@ func shape(k: String, at: Vector2) -> Dictionary:
 			return _act(k, steps)
 		"wait":
 			return _act(k, [{"ph": "wait"}])
+		"block":
+			return _act(k, [{"ph": "block", "clip": Acts.HERO["block"]["clip"], "frame": 1, "face": aim, "guard": true}])
 	return {}
 
 
@@ -193,8 +196,15 @@ func step() -> void:
 		var st := current(u)
 		if st.get("live", false) and not u.cur.get("hit", false):
 			var v: Unit = knight if u == hero else hero
-			if not current(v).get("safe", false) and sweep_hits(u, v):
-				u.cur["hit"] = true
+			if current(v).get("safe", false):
+				continue
+			var at: Variant = sweep_contact(u, v)
+			if at == null:
+				continue
+			u.cur["hit"] = true
+			if blocks(v, at):
+				_blocked(at)
+			else:
 				_hurt(v, u, int(st["dmg"]))
 	for u in units:
 		if u.idle():
@@ -313,6 +323,20 @@ func _hurt(v: Unit, by: Unit, d: int) -> void:
 
 # ---------------------------------------------------------------- blades
 
+## Whether v, guarding, stops a hit landing at `at` (within the block's
+## arc of where v faces).
+func blocks(v: Unit, at: Vector2) -> bool:
+	if not current(v).get("guard", false):
+		return false
+	var off := absf(angle_difference(v.ang, (at - v.pos).angle()))
+	return rad_to_deg(off) <= float(Acts.HERO["block"]["arc"]) / 2.0
+
+
+func _blocked(at: Vector2) -> void:
+	_sparks(at, 5, Pal.INK)
+	shake_amt = maxf(shake_amt, 1.0)
+
+
 ## u's blade polygons, posed `pose`, standing at p facing a.
 func blade(u: Unit, pose: Dictionary, p: Vector2, a: float) -> Array:
 	var s := float(u.data()["scale"])
@@ -339,6 +363,11 @@ func swept(u: Unit, a: Dictionary, pa: Vector2, aa: float, b: Dictionary, pb: Ve
 ## Did u's blade, this step, sweep over any of v's body? Both move as they
 ## go: each check uses where v was by then.
 func sweep_hits(u: Unit, v: Unit) -> bool:
+	return sweep_contact(u, v) != null
+
+
+## Where u's blade first touched v this step (null = it didn't).
+func sweep_contact(u: Unit, v: Unit) -> Variant:
 	var a: Dictionary = u.was["pose"]
 	var prev := blade(u, a, u.was["pos"], u.was["ang"])
 	for k in range(1, Acts.SWEEP_CHECKS + 1):
@@ -349,10 +378,20 @@ func sweep_hits(u: Unit, v: Unit) -> bool:
 		for i in mini(prev.size(), now.size()):
 			hulls.append(Geometry2D.convex_hull(prev[i] + now[i]))
 		for c in v.body(vp, lerp_angle(v.was["ang"], v.ang, t)):
-			if float(RigArt.gap(c[0], hulls)[0]) <= float(c[1]):
-				return true
+			var g := RigArt.gap(c[0], hulls)
+			if float(g[0]) <= float(c[1]):
+				if float(g[0]) > 0.0:
+					return g[1]
+				# Right over the middle of the body: where the blade is.
+				var sum := Vector2.ZERO
+				var n := 0
+				for h in hulls:
+					for q in h:
+						sum += q
+						n += 1
+				return sum / maxi(n, 1)
 		prev = now
-	return false
+	return null
 
 
 ## u's coming steps from now, as they'd go if nobody moved: [{n (steps

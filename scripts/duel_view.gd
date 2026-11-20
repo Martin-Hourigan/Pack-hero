@@ -93,6 +93,12 @@ func _preview(d: Duel) -> void:
 	var a: Dictionary = d.shape(main.tool, main.hover)
 	if a.is_empty():
 		return
+	if main.tool == "block":
+		# The front it guards.
+		var aim := float(a["steps"][0]["face"])
+		var half := deg_to_rad(float(Acts.HERO["block"]["arc"])) / 2.0
+		draw_arc(_px(h.pos), Duel._radius(h) + 4.0, aim - half, aim + half, 16, Pal.INK.darkened(0.3))
+		return
 	var tr := d.trace(h, a)
 	if tr.is_empty():
 		return
@@ -153,21 +159,32 @@ func _wig(d: Duel, k: String) -> float:
 	return round(sin(main.clock * 60.0) * 2.0) if d.wiggle.has(k) else 0.0
 
 
-## The buttons along the bottom (main.buttons()).
+## The buttons along the bottom (main.buttons()), and a hand's menu when
+## it's open. A hand's button, when its item has the tool, says which.
 func _tools(d: Duel) -> void:
 	for b in main.buttons():
-		var col: Color = Pal.INK if main.tool == b[1] or main.held == b[1] else Pal.DIM
-		if Duel.cost(b[1]) > d.stamina or (b[1] == "flask" and d.flasks <= 0):
+		var id: String = b[1]
+		var hand := id.trim_prefix("hand:") if id.begins_with("hand:") else ""
+		var picked: bool = main.tool == id or (hand != "" and main.hand_of(main.tool) == hand)
+		var col: Color = Pal.INK if picked or main.held == id or (hand != "" and main.menu == hand) else Pal.DIM
+		if Duel.cost(id) > d.stamina or (id == "flask" and d.flasks <= 0):
 			col = Pal.DIM.darkened(0.45)
+		_button(b[0], b[2], col, picked, main.tool.to_upper() if hand != "" and picked else "")
+	for b in main.menu_buttons():
+		var col: Color = Pal.DIM.darkened(0.45) if Duel.cost(b[1]) > d.stamina else Pal.INK
 		_button(b[0], b[2], col, main.tool == b[1])
 	var s := str(d.step_n)
 	Pal.text(self, Vector2(380 - Pal.width(s), 178), s, Pal.DARK.lightened(0.2))
 
 
-func _button(r: Rect2, label: String, col: Color, picked := false) -> void:
+## A button; `under` is a second, dimmer line below the label.
+func _button(r: Rect2, label: String, col: Color, picked := false, under := "") -> void:
 	draw_rect(r, Pal.BG)
 	draw_rect(r.grow(-0.5), col if picked else Pal.DARK, false)
-	Pal.text(self, r.position + Vector2(round((r.size.x - Pal.width(label)) / 2.0), round(r.size.y / 2.0) - 2), label, col)
+	var y: float = round(r.size.y / 2.0) - (5.0 if under != "" else 2.0)
+	Pal.text(self, r.position + Vector2(round((r.size.x - Pal.width(label)) / 2.0), y), label, col)
+	if under != "":
+		Pal.text(self, r.position + Vector2(round((r.size.x - Pal.width(under)) / 2.0), y + 6.0), under, Pal.DIM)
 
 
 func _result(d: Duel) -> void:

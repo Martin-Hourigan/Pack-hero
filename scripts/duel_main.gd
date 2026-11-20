@@ -4,20 +4,25 @@ extends Node2D
 ##
 ## Title: Space the knight, R the raptor (not on the phone: its controls are
 ## keys). The update button checks GitHub for a newer APK.
-## In the duel: 1 MOVE, 2 ROLL, 3 LIGHT, 4 HEAVY, 5 FLASK pick the tool; the
-## mouse aims it and left click does it; Space WAIT (a step). The buttons
-## along the bottom do the same. Steps play until the hero's action is done
+## In the duel: 1 MOVE, 2 ROLL, 5 FLASK; 3 and 4 open the left and right
+## hand's menus (the item's name on the button; the menu lists what it can
+## do: LIGHT, HEAVY, BLOCK...), and picking one makes it the tool. The mouse
+## aims the tool and left click does it; Space WAIT (a step). The buttons
+## along the bottom do the same. The tool stays picked until another is
+## (so BLOCK, a step at a time, keeps blocking). Steps play until the hero's action is done
 ## and you choose again (a walk also stops when the knight starts an attack).
 ## Esc (or the phone's back) to the title. After the fight, Space or a tap.
 ## On a phone (or with --touch) a tap aims (the preview shows there) and a
-## second tap on the same spot does it; holding WAIT keeps waiting.
+## second tap on the same spot does it (BLOCK: one tap, it's one step);
+## holding WAIT keeps waiting.
 ## Dev flags (after --): --duel (straight in), --seed=N, --at=x,y (the hero
 ## there), --knight=sweep / backhand / overhead (he starts it now),
 ## --steps=N (play N steps first), --tool=light (picked) with --mouse=x,y
-## (aimed there), --touch.
+## (aimed there), --touch, --blocking (the hero blocks those steps), --menu=right
+## (that hand's menu open).
 
 const STEP_T := 0.07  # s a step takes on screen
-const TOOLS := [["1", "move"], ["2", "roll"], ["3", "light"], ["4", "heavy"], ["5", "flask"]]
+const TOOLS := [["1", "move"], ["2", "roll"], ["3", "hand:left"], ["4", "hand:right"], ["5", "flask"]]
 const KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5]
 const SAME_TAP := 10.0  # px: a second tap this near the aim does it
 
@@ -32,6 +37,7 @@ var view: DuelView
 var touch := false  # taps: aim, then tap again to do it
 var aimed := false  # touch: a spot has been tapped
 var held := ""  # the button being held down
+var menu := ""  # the hand whose menu is open ("left", "right")
 
 var update_state := "idle"  # idle, checking, latest, new, failed, downloading, ready, download_failed
 var update_tag := ""
@@ -66,9 +72,10 @@ func _ready() -> void:
 			duel.start_attack(String(flags["knight"]))
 		for i in int(flags.get("steps", "0")):
 			if duel.hero.idle():
-				duel.hero.cur = duel.shape("wait", duel.hero.pos)
+				duel.hero.cur = duel.shape("block", duel.knight.pos) if flags.has("blocking") else duel.shape("wait", duel.hero.pos)
 			duel.step()
 		tool = String(flags.get("tool", tool))
+		menu = String(flags.get("menu", ""))
 
 
 func begin() -> void:
@@ -77,6 +84,7 @@ func begin() -> void:
 	tool = "move"
 	u = 1.0
 	aimed = false
+	menu = ""
 
 
 func _process(dt: float) -> void:
@@ -116,6 +124,7 @@ func _to_title() -> void:
 	mode = "title"
 	duel = null
 	held = ""
+	menu = ""
 
 
 func _unhandled_input(ev: InputEvent) -> void:
@@ -130,15 +139,47 @@ func _unhandled_input(ev: InputEvent) -> void:
 		hover = get_global_mouse_position()  # dragging moves the aim
 
 
-## The buttons along the bottom of the duel: [rect, id, label].
+## The buttons along the bottom of the duel: [rect, id, label]. A hand's
+## button is named for what's in it.
 func buttons() -> Array:
 	var out := []
 	var x := 4.0
 	for t in TOOLS:
-		out.append([Rect2(x, 188, 50, 20), t[1], String(t[1]).to_upper() if touch else "%s %s" % [t[0], String(t[1]).to_upper()]])
-		x += 54
-	out.append([Rect2(x, 188, 50, 20), "wait", "WAIT" if touch else "SPC WAIT"])
+		var id: String = t[1]
+		var w := 72.0 if id.begins_with("hand:") else 40.0
+		var label: String = item(id.trim_prefix("hand:"))["name"] if id.begins_with("hand:") else id.to_upper()
+		out.append([Rect2(x, 188, w, 20), id, label if touch else "%s %s" % [t[0], label]])
+		x += w + 4
+	out.append([Rect2(x, 188, 40, 20), "wait", "WAIT" if touch else "SPC WAIT"])
 	out.append([Rect2(358, 188, 22, 20), "back", "<"])
+	return out
+
+
+## What's in hand h ("left", "right"): {name, does}.
+static func item(h: String) -> Dictionary:
+	return Acts.ITEMS[Acts.HANDS[h]]
+
+
+## The hand whose item does tool k ("" = none).
+static func hand_of(k: String) -> String:
+	for h in Acts.HANDS:
+		if k in item(h)["does"]:
+			return h
+	return ""
+
+
+## The open hand menu's options, stacked above its button: [rect, id, label].
+func menu_buttons() -> Array:
+	if menu == "":
+		return []
+	var at := Rect2()
+	for b in buttons():
+		if b[1] == "hand:" + menu:
+			at = b[0]
+	var out := []
+	var does: Array = item(menu)["does"]
+	for i in does.size():
+		out.append([Rect2(at.position.x, at.position.y - 18 * (does.size() - i), at.size.x, 16), does[i], String(does[i]).to_upper()])
 	return out
 
 
@@ -174,8 +215,20 @@ func _press(p: Vector2) -> void:
 	if duel.result != "":
 		begin()
 		return
+	if menu != "":
+		var m := _hit(menu_buttons(), p)
+		var was := menu
+		menu = ""
+		if m != "":
+			tool = m
+			aimed = false
+			return
+		if _hit(buttons(), p) == "hand:" + was:
+			return  # its button again: just closed
 	var b := _hit(buttons(), p)
-	if b == "back":
+	if b.begins_with("hand:"):
+		menu = b.trim_prefix("hand:")
+	elif b == "back":
 		_to_title()
 	elif b == "wait":
 		held = "wait"
@@ -185,7 +238,7 @@ func _press(p: Vector2) -> void:
 	elif b != "":
 		tool = b
 		aimed = false
-	elif not touch:
+	elif not touch or tool == "block":
 		act(tool, p)
 	elif aimed and p.distance_to(hover) <= SAME_TAP:
 		if act(tool, hover):
@@ -205,7 +258,10 @@ func _key(k: int, echo: bool) -> void:
 			get_tree().change_scene_to_file("res://scenes/main.tscn")
 		return
 	if k == KEY_ESCAPE and not echo:
-		_to_title()
+		if menu != "":
+			menu = ""
+		else:
+			_to_title()
 		return
 	if duel.result != "":
 		if (k == KEY_SPACE or k == KEY_ENTER) and not echo:
@@ -215,8 +271,11 @@ func _key(k: int, echo: bool) -> void:
 		var t: String = TOOLS[KEYS.find(k)][1]
 		if t == "flask":
 			act("flask", duel.hero.pos)
+		elif t.begins_with("hand:"):
+			menu = "" if menu == t.trim_prefix("hand:") else t.trim_prefix("hand:")
 		else:
 			tool = t
+			menu = ""
 	elif k == KEY_SPACE:
 		act("wait", duel.hero.pos)  # held: keeps waiting
 

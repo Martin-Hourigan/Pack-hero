@@ -170,6 +170,27 @@ func _hero() -> void:
 	check(d.hero.hp == 50 + int(Acts.HERO["heal"]) and d.flasks == int(Acts.HERO["flasks"]) - 1, "a flask heals")
 	d.flasks = 0
 	check(not d.plan("flask", d.hero.pos), "no flasks left: no")
+	# Blocking toward the swing, step after step: no damage. Turned away: hit.
+	for away in [false, true]:
+		d = Duel.new(1)
+		d.hero.pos = d.knight.pos + Vector2(-30, 0)
+		d.knight.ang = PI
+		d.start_attack("sweep")
+		var face := d.hero.pos + (Vector2(-20, 0) if away else Vector2(20, 0))
+		hp = d.hero.hp
+		for i in d.knight.cur["steps"].size():
+			if d.hero.idle():
+				d.plan("block", face)
+			d.step()
+		if away:
+			check(d.hero.hp < hp, "blocking the wrong way, hit")
+		else:
+			check(d.hero.hp == hp, "blocking toward the swing, no damage", str(hp - d.hero.hp))
+	check(d.shape("block", d.knight.pos)["steps"].size() == 1, "a block is one step")
+	for h in Acts.HANDS:
+		var it: Dictionary = Acts.ITEMS[Acts.HANDS[h]]
+		for k in it["does"]:
+			check(not d.shape(k, d.knight.pos).is_empty(), "the %s hand's %s works" % [h, k])
 	# A walk stops when the knight starts an attack.
 	d = Duel.new(1)
 	d.hero.pos = d.knight.pos + Vector2(-60, 0)

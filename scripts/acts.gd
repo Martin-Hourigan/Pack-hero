@@ -127,6 +127,16 @@ const HERO := {
 	"heavy": {"clip": "heavy", "wind": 3, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 55, "st": 35},
 	# 4 steps of `px`; hits miss on the first `safe` steps.
 	"roll": {"clip": "roll", "steps": 4, "px": 8.0, "safe": 2, "st": 25},
+	# A step facing the way it's aimed: a hit landing within `arc` degrees of
+	# straight ahead does nothing.
+	"block": {"clip": "block", "arc": 180.0, "st": 0},
+}
+
+## What's in the hero's hands, and what each item can do (the hand's menu).
+const HANDS := {"left": "kite shield", "right": "longsword"}
+const ITEMS := {
+	"longsword": {"name": "LONGSWORD", "does": ["light", "heavy"]},
+	"kite shield": {"name": "KITE SHIELD", "does": ["block"]},
 }
 const KNIGHT := {
 	"walk": 3.0,  # px a step
