@@ -200,6 +200,14 @@ PLACEHOLDER: icons are the puppet's own item art (long ones diagonal, as
 big as whole pixels fit). The kite shield is seen from above, so its icon
 looks like a thin curve (like a bow); a face-on icon would need drawing.
 
+TUNING (2026-11-20, Martin)
+- Quarterstaff 20% longer (more range). Claymore: bigger crossguard, blade
+  20% shorter.
+- Bow and staff attacks need a bigger wind-up. PLACEHOLDER: 2 more steps
+  each: ARROW / FIRE ARROW 5, HEAVY SHOT 7, BOLT 3, HEAVY BOLT 5 (the
+  quarterstaff's bow and the spear staff too). The draw / raise is spread
+  over the longer wind-up.
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 

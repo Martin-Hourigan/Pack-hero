@@ -171,9 +171,9 @@ const ITEMS := {
 		"block": {"clip": "cm2_block", "block": 180.0, "cut": 0.5, "st": 0},
 	}},
 	"bow": {"name": "BOW", "hands": 2, "key": "bow", "nodes": ["bow", "bow_string", "arrow"], "does": {
-		"arrow": {"clip": "bow_shot", "wind": 3, "swing": 1, "rec": 1, "shot": "arrow", "st": 15},
-		"fire arrow": {"clip": "bow_shot", "wind": 3, "swing": 1, "rec": 1, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
-		"heavy shot": {"clip": "bow_heavy", "wind": 5, "swing": 1, "rec": 1, "shot": "heavy arrow", "st": 30},
+		"arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "arrow", "st": 15},
+		"fire arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
+		"heavy shot": {"clip": "bow_heavy", "wind": 7, "swing": 1, "rec": 1, "shot": "heavy arrow", "st": 30},
 	}},
 	"crossbow": {"name": "CROSSBOW", "hands": 1, "key": "xb", "nodes": ["xb", "xb_bolt"], "does": {
 		"bolt": {"clip": "xb_shot", "wind": 0, "swing": 1, "rec": 1, "shot": "bolt", "st": 10, "loaded": true},
@@ -181,8 +181,8 @@ const ITEMS := {
 		"reload": {"clip": "xb_reload", "reload": 4, "st": 0},
 	}},
 	"staff": {"name": "STAFF", "hands": 1, "key": "st", "nodes": ["st"], "does": {
-		"bolt": {"clip": "st_bolt", "wind": 1, "swing": 1, "rec": 1, "shot": "magic bolt", "st": 20, "casts": 20},
-		"heavy bolt": {"clip": "st_heavy", "wind": 3, "swing": 1, "rec": 2, "shot": "heavy magic bolt", "st": 40, "casts": 20},
+		"bolt": {"clip": "st_bolt", "wind": 3, "swing": 1, "rec": 1, "shot": "magic bolt", "st": 20, "casts": 20},
+		"heavy bolt": {"clip": "st_heavy", "wind": 5, "swing": 1, "rec": 2, "shot": "heavy magic bolt", "st": 40, "casts": 20},
 	}},
 	# Trick weapons: TRANSFORM goes between the forms.
 	"quarterstaff": {"name": "QUARTERSTAFF", "hands": 2, "key": "qs", "nodes": ["qs"], "blade": "qs", "trick": "quarterstaff bow", "does": {
@@ -192,9 +192,9 @@ const ITEMS := {
 	}},
 	"quarterstaff bow": {"name": "BOW", "hands": 2, "key": "bow", "nodes": ["bow", "bow_string", "arrow"], "look": {"bow": "qs_bow"},
 		"trick": "quarterstaff", "does": {
-		"arrow": {"clip": "bow_shot", "wind": 3, "swing": 1, "rec": 1, "shot": "arrow", "st": 15},
-		"fire arrow": {"clip": "bow_shot", "wind": 3, "swing": 1, "rec": 1, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
-		"heavy shot": {"clip": "bow_heavy", "wind": 5, "swing": 1, "rec": 1, "shot": "heavy arrow", "st": 30},
+		"arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "arrow", "st": 15},
+		"fire arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
+		"heavy shot": {"clip": "bow_heavy", "wind": 7, "swing": 1, "rec": 1, "shot": "heavy arrow", "st": 30},
 	}},
 	"greatspear": {"name": "GREATSPEAR", "hands": 2, "key": "gs", "nodes": ["gs", "gs_head"], "blade": "gs_head", "trick": "greatspear split", "does": {
 		"light": {"clip": "gs_light", "wind": 1, "swing": 2, "rec": 2, "live": [1, 2], "dmg": 35, "st": 20},
@@ -204,8 +204,8 @@ const ITEMS := {
 	"greatspear split": {"name": "GREATSPEAR", "hands": 2, "key": "", "nodes": [], "trick": "greatspear", "does": {},
 		"split": {"left": "spear staff", "right": "shortsword"}},
 	"spear staff": {"name": "SPEAR STAFF", "hands": 1, "key": "gst", "nodes": ["gst"], "does": {
-		"bolt": {"clip": "st_bolt", "wind": 1, "swing": 1, "rec": 1, "shot": "magic bolt", "st": 20, "casts": 20},
-		"heavy bolt": {"clip": "st_heavy", "wind": 3, "swing": 1, "rec": 2, "shot": "heavy magic bolt", "st": 40, "casts": 20},
+		"bolt": {"clip": "st_bolt", "wind": 3, "swing": 1, "rec": 1, "shot": "magic bolt", "st": 20, "casts": 20},
+		"heavy bolt": {"clip": "st_heavy", "wind": 5, "swing": 1, "rec": 2, "shot": "heavy magic bolt", "st": 40, "casts": 20},
 	}},
 	"shortsword": {"name": "SHORTSWORD", "hands": 1, "key": "ss", "nodes": ["ss_hilt", "ss_blade"], "blade": "ss_blade", "does": {
 		"light": {"clip": "ss_light", "wind": 1, "swing": 2, "rec": 1, "live": [1, 2], "dmg": 18, "st": 12},
