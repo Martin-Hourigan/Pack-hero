@@ -31,6 +31,7 @@ func _draw() -> void:
 	for u in order:
 		_unit(d, u)
 	_shots(d)
+	_reticles(d)
 	for s in d.sparks:
 		draw_rect(Rect2(_px(s["p"]), Vector2.ONE * (2.0 if s["life"] / s["max"] > 0.5 else 1.0)), s["col"])
 	for n in d.numbers:
@@ -95,7 +96,7 @@ func _preview(d: Duel) -> void:
 	var h := d.hero
 	if not h.idle() or main.u < 1.0 or d.result != "":
 		return
-	if main.touch and not main.aimed and not (d.lock and ":" in main.tool):
+	if main.picking or (main.touch and not main.aimed and not (d.target != null and ":" in main.tool)):
 		return
 	var a: Dictionary = d.shape(main.tool, main.hover)
 	if a.is_empty():
@@ -144,6 +145,31 @@ func _unit(d: Duel, u: Unit) -> void:
 	if u.flash >= 0.5:
 		o["all"] = Color.WHITE
 	RigArt.draw(self, d.art(u), Transform2D(a, Vector2(s, s), 0.0, _px(p)), o)
+
+
+## LOCK: a reticle on the enemy locked on to; picking one, the mouse is a
+## reticle (on the phone every enemy's pulses instead).
+func _reticles(d: Duel) -> void:
+	if d.target != null:
+		_reticle(d.target.pos, Duel._radius(d.target) + 3.0, Pal.INK)
+	if not main.picking:
+		return
+	var pulse: float = 1.0 + round(sin(main.clock * 8.0) + 1.0)
+	for u in d.units:
+		if u.side == "enemy" and u.alive():
+			_reticle(u.pos, Duel._radius(u) + 2.0 + pulse, Pal.INK if d.enemy_at(main.hover) == u else Pal.DIM)
+	if not main.touch:
+		_reticle(main.hover, 3.0, Pal.INK)
+
+
+## Four corner ticks round c, r px out.
+func _reticle(c: Vector2, r: float, col: Color) -> void:
+	var p := _px(c)
+	for sx in [-1, 1]:
+		for sy in [-1, 1]:
+			var q := p + Vector2(sx, sy) * r
+			draw_rect(Rect2(q.x - (2 if sx > 0 else 0), q.y, 3, 1), col)
+			draw_rect(Rect2(q.x, q.y - (2 if sy > 0 else 0), 1, 3), col)
 
 
 ## GUARD up: the front it stops hits from, round the hero.
@@ -209,7 +235,7 @@ func _tools(d: Duel) -> void:
 		_button(b[0], b[2], Pal.DIM.darkened(0.45) if no else Pal.INK, main.tool == id)
 	for b in main.toggle_buttons():
 		var id: String = b[1]
-		var on: bool = main.toggled(id)
+		var on: bool = main.toggled(id) or (id == "lock" and main.picking and fmod(main.clock, 0.6) < 0.3)
 		var col: Color = Pal.INK if on else (Pal.DIM if main.can_toggle(id) else Pal.DIM.darkened(0.45))
 		var r: Rect2 = b[0]
 		r.position.x += _wig(d, id)

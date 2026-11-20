@@ -165,9 +165,14 @@ DECIDED (Martin)
 BUILT
 - Three toggles above the bottom right, lit when on: LOCK (Q), 2H (E),
   GUARD (F). BLOCK, TWO HANDS and ONE HAND left the menus.
-- LOCK: the hero faces the knight while walking, waiting, drinking; a
-  hand's attacks and spells aim at him (on the phone, one tap does them).
-  MOVE and ROLL are still aimed where you tap.
+- LOCK: tap it, then tap (click) an enemy to lock on to it (Martin: the
+  cursor turns into a reticle, and it needs an enemy picked to go ahead).
+  Until then LOCK blinks and other taps on the arena do nothing; LOCK again
+  stops picking. Locked: corner marks on that enemy; the hero faces it
+  while walking, waiting, drinking; a hand's attacks and spells aim at it
+  (on the phone, one tap does them). MOVE and ROLL are still aimed where
+  you tap. LOCK while locked lets go; it lets go when that enemy dies.
+  On the phone (no cursor) every enemy pulses with a reticle while picking.
 - 2H: the right hand's item in two hands, else the left's; again lets go.
   1 step.
 - GUARD: the shield's (or the two-handed weapon's) block is up whatever

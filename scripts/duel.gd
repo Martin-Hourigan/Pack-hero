@@ -12,7 +12,7 @@ extends RefCounted
 ## The hero's tools: move, roll, flask, wait, and "hand:thing" for what the
 ## item in that hand does (Acts.ITEMS), e.g. "right:light", "left:bolt",
 ## or SWAP, TWO HANDS, ONE HAND, TRANSFORM ("left:swap"; Acts.CHANGE).
-## Toggles: LOCK (he faces the knight; hand tools aim at him), GUARD (a
+## Toggles: LOCK (on an enemy picked: he faces it; hand tools aim at it), GUARD (a
 ## shield's or two-handed weapon's BLOCK, held up whatever he's doing, until
 ## a roll; stamina comes back slower).
 ## Each hand has two slots and holds one; an item held in both hands (a
@@ -43,7 +43,7 @@ var loaded := {}  # slot ("left0") -> its crossbow is loaded (it is until shot)
 var shots: Array = []  # {k, p, from, ang, left, by}
 var gone: Array = []  # shots that ended this step (drawn for one more step)
 var calm := 0  # steps since the knight was last hit
-var lock := false  # LOCK: the hero faces the knight
+var target: Unit = null  # LOCK: the enemy locked on to (null = none)
 var guard := false  # GUARD: the hero's block is up
 
 # Effects (the view draws them; they don't change play).
@@ -185,6 +185,17 @@ func guard_spec() -> Dictionary:
 			g["hand"] = h
 			return g
 	return {}
+
+
+## The enemy whose body is at p, give or take `slack` px (null = none).
+func enemy_at(p: Vector2, slack := 4.0) -> Unit:
+	for u in units:
+		if u.side != "enemy" or not u.alive():
+			continue
+		for c in u.body():
+			if p.distance_to(c[0]) <= float(c[1]) + slack:
+				return u
+	return null
 
 
 ## The 2H toggle's tool: take the right hand's item in two hands (else the
@@ -334,8 +345,8 @@ func _act(k: String, steps: Array) -> Dictionary:
 ## What the hero would do with tool k aimed at `at` ({} = can't).
 func shape(k: String, at: Vector2) -> Dictionary:
 	var u := hero
-	if lock and ":" in k:
-		at = knight.pos
+	if target != null and ":" in k:
+		at = target.pos
 	var aim := (at - u.pos).angle() if at.distance_to(u.pos) > 0.5 else u.ang
 	match k:
 		"move":
@@ -540,6 +551,8 @@ func step() -> void:
 	# A walk stops when the knight starts an attack: you choose again.
 	if walking and knight_starts and String(hero.cur.get("k", "")) == "move":
 		hero.cur = {}
+	if target != null and not target.alive():
+		target = null
 	if hero.hp <= 0:
 		result = "lose"
 	elif knight.hp <= 0:
@@ -575,8 +588,8 @@ func _do(u: Unit) -> void:
 		_walk(u, st["to"])
 	if float(st.get("fwd", 0.0)) > 0.0:
 		_walk(u, u.pos + Vector2.from_angle(u.ang) * float(st["fwd"]))
-	if u == hero and lock and not st.has("clip"):
-		u.ang = (knight.pos - u.pos).angle()  # walking, waiting...: facing him
+	if u == hero and target != null and not st.has("clip"):
+		u.ang = (target.pos - u.pos).angle()  # walking, waiting...: facing it
 	u.pose = pose_for(u, st, u.cur)
 
 

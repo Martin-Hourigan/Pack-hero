@@ -19,6 +19,8 @@ extends Node2D
 ## Esc (or the phone's back) to the title. After the fight, Space or a tap.
 ## On a phone (or with --touch) a tap aims (the preview shows there) and a
 ## second tap on the same spot does it (locked on, a hand's tool: one tap);
+## LOCK: then tap (click) an enemy to lock on to it (the mouse is a reticle
+## meanwhile; LOCK again stops picking); locked on, LOCK lets go.
 ## holding WAIT keeps waiting.
 ## Toggles above the bottom right: LOCK (Q), 2H (E), GUARD (F); lit when
 ## on. BLOCK, TWO HANDS and ONE HAND aren't in the menus: they're these.
@@ -51,6 +53,7 @@ var touch := false  # taps: aim, then tap again to do it
 var aimed := false  # touch: a spot has been tapped
 var held := ""  # the button being held down
 var menu := ""  # the hand whose menu is open ("left", "right")
+var picking := false  # LOCK tapped: tap an enemy to lock on
 
 var update_state := "idle"  # idle, checking, latest, new, failed, downloading, ready, download_failed
 var update_tag := ""
@@ -96,7 +99,9 @@ func _ready() -> void:
 			duel.plan(String(flags["dohero"]).replace("_", " "), duel.knight.pos)
 		if flags.has("blocking"):
 			duel.toggle_guard()
-		duel.lock = flags.has("lock")
+		if flags.has("lock"):
+			duel.target = duel.knight
+		picking = flags.has("picking")
 		for i in int(flags.get("steps", "0")):
 			if duel.hero.idle():
 				duel.hero.cur = duel.shape("wait", duel.hero.pos)
@@ -112,6 +117,7 @@ func begin() -> void:
 	u = 1.0
 	aimed = false
 	menu = ""
+	picking = false
 
 
 func _process(dt: float) -> void:
@@ -124,6 +130,8 @@ func _process(dt: float) -> void:
 		var xy := String(flags["mouse"]).split(",")
 		hover = Vector2(float(xy[0]), float(xy[1]))
 		aimed = true
+	if not touch:
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if mode == "duel" and picking else Input.MOUSE_MODE_VISIBLE
 	if mode == "duel":
 		if ":" in tool and duel.spec(tool).is_empty():
 			tool = "move"  # its item has been put away or changed
@@ -154,6 +162,7 @@ func _to_title() -> void:
 	duel = null
 	held = ""
 	menu = ""
+	picking = false
 
 
 func _unhandled_input(ev: InputEvent) -> void:
@@ -204,7 +213,7 @@ func toggle_buttons() -> Array:
 func toggled(id: String) -> bool:
 	match id:
 		"lock":
-			return duel.lock
+			return duel.target != null
 		"two":
 			return duel.grip != "" and duel.two_handed(duel.grip)
 		"guard":
@@ -225,7 +234,10 @@ func can_toggle(id: String) -> bool:
 func toggle(id: String) -> void:
 	match id:
 		"lock":
-			duel.lock = not duel.lock
+			if duel.target != null:
+				duel.target = null
+			else:
+				picking = not picking
 		"two":
 			var t := duel.two_tool()
 			if t == "":
@@ -345,6 +357,12 @@ func _press(p: Vector2) -> void:
 	if tg != "":
 		toggle(tg)
 		return
+	if picking and _hit(buttons(), p) == "":
+		var e := duel.enemy_at(p, 8.0 if touch else 4.0)
+		if e != null:
+			duel.target = e
+			picking = false
+		return  # (anywhere else: still picking)
 	var b := _hit(buttons(), p)
 	if b.begins_with("hand:"):
 		menu = b.trim_prefix("hand:")
@@ -358,7 +376,7 @@ func _press(p: Vector2) -> void:
 	elif b != "":
 		tool = b
 		aimed = false
-	elif not touch or (duel.lock and ":" in tool):
+	elif not touch or (duel.target != null and ":" in tool):
 		act(tool, p)
 	elif aimed and p.distance_to(hover) <= SAME_TAP:
 		if act(tool, hover):
