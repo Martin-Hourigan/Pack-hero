@@ -53,9 +53,16 @@ func _puppets() -> void:
 	var hp_art := String(Acts.DUEL_UNITS["hero"]["art"])
 	for th in Acts.ITEMS:
 		var it: Dictionary = Acts.ITEMS[th]
+		if it.has("split"):
+			continue
 		check(RigArt.frames(hp_art, String(it["key"]) + "_hold") == 1, "the hero can hold the %s" % th)
-		for o in it["does"]:
-			var at: Dictionary = it["does"][o]
+		if it.has("two"):
+			check(RigArt.frames(hp_art, String(it["key"]) + "2_hold") == 1, "the hero can hold the %s in two hands" % th)
+		var moves: Dictionary = it["does"].duplicate()
+		for o in it.get("two", {}):
+			moves["two " + o] = it["two"][o]
+		for o in moves:
+			var at: Dictionary = moves[o]
 			var n := 1
 			if at.has("wind"):
 				n = int(at["wind"]) + int(at["swing"]) + int(at["rec"])
@@ -245,9 +252,15 @@ func _whole() -> void:
 	check(ended == 3, "3 whole fights end")
 
 
+## Gear with these held in the left and right hands (second slots: a
+## staff, a longsword).
+func _kit(left: String, right: String, left2 := "staff", right2 := "longsword") -> Dictionary:
+	return {"left": [left, left2], "right": [right, right2]}
+
+
 ## A duel with this gear, the knight standing still far off (or at `at`).
-func _armed(left: String, right: String, at := Vector2(-80, 0)) -> Duel:
-	var d := Duel.new(1, Duel.equip(Duel.equip(Acts.HANDS, "left", left), "right", right))
+func _armed(left: String, right: String, at := Vector2(-80, 0), left2 := "staff", right2 := "longsword") -> Duel:
+	var d := Duel.new(1, _kit(left, right, left2, right2))
 	d.knight.pos = d.hero.pos + at.abs()
 	d.knight.ang = PI
 	_still_knight(d, 60)
@@ -269,25 +282,103 @@ func _until_free(d: Duel, n := 40) -> void:
 
 
 func _gear() -> void:
-	# Every item, in every hand it fits, does everything in its menu.
+	# Every item, in either hand, one- or two-handed, in every form, does
+	# everything in its menu.
 	for th in Acts.GEAR:
 		for h in ["left", "right"]:
-			var d := Duel.new(1, Duel.equip(Acts.HANDS, h, th))
-			var hand: String = h if d.hands().size() == 2 else "right"
-			for o in d.item(hand)["does"]:
-				check(not d.shape(hand + ":" + o, d.knight.pos).is_empty(), "%s in the %s hand: %s" % [th, h, o])
-	var g := Duel.equip(Acts.HANDS, "left", "bow")
-	check(g["left"] == "bow" and g["right"] == "bow", "a two-handed item fills both hands")
-	g = Duel.equip(g, "right", "staff")
-	check(g["right"] == "staff" and int(Acts.ITEMS[g["left"]]["hands"]) == 1, "a one-handed item beside it: the other hand gets one too")
+			var kit := _kit("kite shield", "longsword")
+			kit[h][0] = th
+			var d := _armed(kit["left"][0], kit["right"][0])
+			for form in 3:
+				for hand in d.hands():
+					for o in d.options(hand):
+						check(not d.shape(hand + ":" + o, d.knight.pos).is_empty(), "%s in the %s hand (%s): %s" % [th, h, d.item_key(hand), o])
+				var hand0: String = d.hands()[0] if h in d.hands() else h
+				var change := ""
+				for c in ["two hands", "transform"]:
+					if d.options(hand0).has(c):
+						change = c
+				if change == "" or form == 2:
+					break
+				check(d.plan(hand0 + ":" + change, d.hero.pos), "%s: %s" % [th, change])
+				_until_free(d)
+	var d0 := Duel.new(1, _kit("bow", "longsword"))
+	check(d0.hands() == ["left"], "a two-handed item takes both hands", str(d0.hands()))
+	# SWAP: a step, then the other slot's item is held.
+	var d := _armed("kite shield", "longsword", Vector2(-80, 0), "staff", "claymore")
+	check(d.plan("right:swap", d.hero.pos), "swap")
+	_until_free(d)
+	check(d.held("right") == "claymore" and d.hands().size() == 2, "swapped: the claymore, in one hand")
+	var one := d.cost("right:light")
+	var one_dmg := int(d.spec("right:light")["dmg"])
+	d.plan("right:two hands", d.hero.pos)
+	_until_free(d)
+	check(d.hands() == ["right"] and d.options("right").has("block"), "in two hands: one button, and it can block")
+	check(d.cost("right:light") < one and int(d.spec("right:light")["dmg"]) > one_dmg, "one-handed, the claymore costs more and hits less")
+	d.plan("right:one hand", d.hero.pos)
+	_until_free(d)
+	check(d.hands().size() == 2, "back to one hand")
+	d.plan("right:swap", d.hero.pos)
+	_until_free(d)
+	check(d.held("right") == "longsword", "swapped back")
+	# A two-handed longsword blocks half a swing, and isn't knocked back.
+	d = Duel.new(1, _kit("kite shield", "longsword"))
+	d.grip = "right"
+	d.hero.pos = d.knight.pos + Vector2(-30, 0)
+	d.knight.ang = PI
+	d.start_attack("sweep")
+	var hp := d.hero.hp
+	for i in d.knight.cur["steps"].size():
+		if d.hero.idle():
+			d.plan("right:block", d.knight.pos)
+		d.step()
+		check(String(d.hero.cur.get("k", "")) != "hurt", "a weapon block: not knocked back")
+	check(hp - d.hero.hp == roundi(int(Acts.KNIGHT["sweep"]["dmg"]) * 0.5), "a weapon block stops half", str(hp - d.hero.hp))
+	# The quarterstaff turns into a bow and back.
+	d = _armed("kite shield", "quarterstaff", Vector2(150, 0))
+	check(d.hands() == ["right"] and d.options("right").has("light"), "the quarterstaff takes both hands")
+	d.plan("right:transform", d.hero.pos)
+	_until_free(d)
+	check(d.item_key("right") == "quarterstaff bow", "transformed: a bow")
+	check(d.plan("right:arrow", d.knight.pos), "it shoots")
+	_until_free(d)
+	for i in 10:
+		d.step()
+	check(d.knight.hp < d.knight.max_hp, "the arrow hits")
+	d.plan("right:transform", d.hero.pos)
+	_until_free(d)
+	check(d.item_key("right") == "quarterstaff", "and back to a staff")
+	d = _armed("kite shield", "quarterstaff", Vector2(16, 0))
+	d.plan("right:light", d.knight.pos)
+	_until_free(d)
+	check(d.knight.hp < d.knight.max_hp, "the quarterstaff's strike hits")
+	# The greatspear thrusts from further off, and separates.
+	d = _armed("kite shield", "greatspear", Vector2(26, 0))
+	d.plan("right:light", d.knight.pos)
+	_until_free(d)
+	check(d.knight.hp < d.knight.max_hp, "the greatspear's thrust reaches", str(d.knight.hp))
+	d.plan("right:transform", d.hero.pos)
+	_until_free(d)
+	check(d.hands().size() == 2 and d.item_key("left") == "spear staff" and d.item_key("right") == "shortsword", "separated: staff left, shortsword right")
+	check(d.options("left").has("transform") and not d.options("left").has("swap"), "both halves can transform; swap's in the spear's hand")
+	check(d.plan("left:bolt", d.knight.pos), "the spear staff casts")
+	_until_free(d)
+	d.knight.pos = d.hero.pos + Vector2(14, 0)
+	var was := d.knight.hp
+	d.plan("right:light", d.knight.pos)
+	_until_free(d)
+	check(d.knight.hp < was, "the shortsword stabs")
+	d.plan("left:transform", d.hero.pos)
+	_until_free(d)
+	check(d.hands() == ["right"] and d.item_key("right") == "greatspear", "joined back: the greatspear")
 	# The claymore's swing hits; so does the longsword in the left hand.
 	for lr in [["kite shield", "claymore", "right:light"], ["longsword", "staff", "left:light"]]:
-		var d := _armed(lr[0], lr[1], Vector2(18, 0))
-		d.plan(lr[2], d.knight.pos)
-		_until_free(d)
-		check(d.knight.hp < d.knight.max_hp, "%s with %s / %s hits" % [lr[2], lr[0], lr[1]], str(d.knight.hp))
+		var dl := _armed(lr[0], lr[1], Vector2(18, 0))
+		dl.plan(lr[2], dl.knight.pos)
+		_until_free(dl)
+		check(dl.knight.hp < dl.knight.max_hp, "%s with %s / %s hits" % [lr[2], lr[0], lr[1]], str(dl.knight.hp))
 	# An arrow flies its speed a step and hits the knight far off.
-	var d := _armed("bow", "bow", Vector2(150, 0))
+	d = _armed("bow", "bow", Vector2(150, 0))
 	check(d.plan("right:arrow", d.knight.pos), "the bow shoots")
 	for i in int(Acts.ITEMS["bow"]["does"]["arrow"]["wind"]) + 1:
 		d.step()
@@ -312,11 +403,11 @@ func _gear() -> void:
 	d = _armed("crossbow", "longsword", Vector2(60, 0))
 	check(d.plan("left:poison bolt", d.knight.pos), "the loaded crossbow shoots")
 	_until_free(d)
-	check(not d.loaded["left"], "then it's empty")
+	check(not d.is_loaded("left"), "then it's empty")
 	check(not d.plan("left:bolt", d.knight.pos) and d.wiggle.has("hand:left"), "empty: can't shoot, the hand wiggles")
 	check(d.plan("left:reload", d.knight.pos), "reload")
 	_until_free(d)
-	check(d.loaded["left"] and d.plan("left:bolt", d.knight.pos), "loaded again, it shoots")
+	check(d.is_loaded("left") and d.plan("left:bolt", d.knight.pos), "loaded again, it shoots")
 	for i in 6:
 		d.step()
 	check(d.knight.burns.has("poison"), "the poison bolt poisoned him")
@@ -339,8 +430,8 @@ func _gear() -> void:
 	check(d.knight.taken == 0, "left alone a while, his poise comes back")
 	# Staff: casts run out.
 	d = _armed("kite shield", "staff", Vector2(60, 0))
-	var c := int(d.casts["right:bolt"])
-	check(d.plan("right:bolt", d.knight.pos) and int(d.casts["right:bolt"]) == c - 1, "a cast uses one up")
+	var c := d.casts_left("right:bolt")
+	check(d.plan("right:bolt", d.knight.pos) and d.casts_left("right:bolt") == c - 1, "a cast uses one up")
 	_until_free(d)
-	d.casts["right:heavy bolt"] = 0
+	d.casts["staff:heavy bolt"] = 0
 	check(not d.plan("right:heavy bolt", d.knight.pos), "none left: no")

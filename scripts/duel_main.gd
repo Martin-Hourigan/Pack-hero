@@ -4,13 +4,14 @@ extends Node2D
 ##
 ## Title: Space the knight, R the raptor (not on the phone: its controls are
 ## keys). The update button checks GitHub for a newer APK.
-## Gear (before the knight): tap a hand to change what's in it (Acts.GEAR's
-## order; a two-handed item fills both); FIGHT or Space to start.
+## Gear (before the knight): two slots a hand; tap one to change what's in
+## it (Acts.GEAR's order); the top slot is held first. FIGHT or Space.
 ## In the duel: 1 MOVE, 2 ROLL, 5 FLASK; 3 and 4 open the left and right
 ## hand's menus (the item's name on the button; the menu lists what it can
 ## do: LIGHT, HEAVY, BLOCK, ARROW...; spells with their casts left), and
-## picking one makes it the tool (RELOAD just does it). A two-handed item
-## has one wide button. The mouse
+## picking one makes it the tool (RELOAD, SWAP, TWO HANDS, ONE HAND and
+## TRANSFORM just do it). An item held in both hands has one wide button.
+## The mouse
 ## aims the tool and left click does it; Space WAIT (a step). The buttons
 ## along the bottom do the same. The tool stays picked until another is
 ## (so BLOCK, a step at a time, keeps blocking). Steps play until the hero's action is done
@@ -23,8 +24,9 @@ extends Node2D
 ## there), --knight=sweep / backhand / overhead (he starts it now),
 ## --steps=N (play N steps first), --tool=right:light (picked) with
 ## --mouse=x,y (aimed there), --touch, --blocking (the hero blocks those
-## steps), --menu=right (that hand's menu open), --gear=left,right (e.g.
-## crossbow,staff or bow,bow; _ for a space), --gearscreen (open the gear
+## steps), --menu=right (that hand's menu open), --gear=left,right or
+## left,left2,right,right2 (e.g. crossbow,staff; _ for a space; the slots
+## not named keep Acts.HANDS'), --gearscreen (open the gear
 ## screen), --dohero=right:heavy_bolt (the hero starts it, before --steps).
 
 const STEP_T := 0.07  # s a step takes on screen
@@ -34,7 +36,7 @@ const SAME_TAP := 10.0  # px: a second tap this near the aim does it
 
 var duel: Duel
 var mode := "title"  # title, gear, duel
-var gear := Acts.HANDS.duplicate()
+var gear := {"left": Array(Acts.HANDS["left"]).duplicate(), "right": Array(Acts.HANDS["right"]).duplicate()}
 var flags := {}
 var clock := 0.0
 var tool := "move"
@@ -71,7 +73,11 @@ func _ready() -> void:
 		_check_update()
 	if flags.has("gear"):
 		var lr := String(flags["gear"]).replace("_", " ").split(",")
-		gear = Duel.equip(Duel.equip(gear, "left", lr[0]), "right", lr[1])
+		if lr.size() == 4:
+			gear = {"left": [lr[0], lr[1]], "right": [lr[2], lr[3]]}
+		else:
+			gear["left"][0] = lr[0]
+			gear["right"][0] = lr[1]
 	if flags.has("gearscreen"):
 		mode = "gear"
 	if flags.has("duel"):
@@ -112,6 +118,8 @@ func _process(dt: float) -> void:
 		hover = Vector2(float(xy[0]), float(xy[1]))
 		aimed = true
 	if mode == "duel":
+		if ":" in tool and duel.spec(tool).is_empty():
+			tool = "move"  # its item has been put away or changed
 		duel.fx(dt)
 		u = minf(u + dt / STEP_T, 1.0)
 		if u >= 1.0 and duel.result == "" and not duel.hero.idle():
@@ -165,8 +173,8 @@ func buttons() -> Array:
 		if id.begins_with("hand:"):
 			var h := id.trim_prefix("hand:")
 			if duel.hands().size() == 1:
-				if h == "left":
-					continue  # one wide button (below)
+				if h != duel.hands()[0]:
+					continue  # one wide button
 				w = 148.0
 			label = duel.item(h)["name"]
 		out.append([Rect2(x, 188, w, 20), id, label if touch else "%s %s" % [t[0], label]])
@@ -183,7 +191,7 @@ static func hand_of(k: String) -> String:
 
 ## The hand whose menu key n (3, 4) opens.
 func _hand_key(h: String) -> String:
-	return "right" if duel.hands().size() == 1 else h
+	return duel.hands()[0] if duel.hands().size() == 1 else h
 
 
 ## The open hand menu's options, stacked above its button: [rect, id, label].
@@ -195,29 +203,36 @@ func menu_buttons() -> Array:
 		if b[1] == "hand:" + menu:
 			at = b[0]
 	var out := []
-	var does: Array = duel.item(menu)["does"].keys()
+	var does: Array = duel.options(menu).keys()
 	var w := minf(at.size.x, 80.0)
 	for i in does.size():
 		var id := menu + ":" + String(does[i])
 		var label := String(does[i]).to_upper()
-		if duel.casts.has(id):
-			label += " %d" % int(duel.casts[id])
+		if duel.casts_left(id) >= 0:
+			label += " %d" % duel.casts_left(id)
 		out.append([Rect2(at.position.x, at.position.y - 18 * (does.size() - i), w, 16), id, label])
 	return out
 
 
-## The gear screen's buttons: [rect, id, label].
+## The gear screen's buttons: [rect, id, label]; a slot's id is its hand
+## and number ("left0").
 func gear_buttons() -> Array:
-	return [[Rect2(60, 80, 120, 24), "left", Acts.ITEMS[gear["left"]]["name"]],
-		[Rect2(204, 80, 120, 24), "right", Acts.ITEMS[gear["right"]]["name"]],
-		[Rect2(132, 130, 120, 20), "fight", "FIGHT" if touch else "SPACE  FIGHT"],
-		[Rect2(358, 188, 22, 20), "back", "<"]]
+	var out := []
+	for h in ["left", "right"]:
+		for i in 2:
+			var x := 60.0 if h == "left" else 204.0
+			out.append([Rect2(x, 72 + 28 * i, 120, 24), h + str(i), Acts.ITEMS[gear[h][i]]["name"]])
+	out.append([Rect2(132, 140, 120, 20), "fight", "FIGHT" if touch else "SPACE  FIGHT"])
+	out.append([Rect2(358, 188, 22, 20), "back", "<"])
+	return out
 
 
-## Puts the next item (Acts.GEAR) in hand h.
-func next_gear(h: String) -> void:
-	var i := Acts.GEAR.find(gear[h])
-	gear = Duel.equip(gear, h, Acts.GEAR[(i + 1) % Acts.GEAR.size()])
+## Puts the next item (Acts.GEAR) in slot `sl` ("left0").
+func next_gear(sl: String) -> void:
+	var h := sl.left(-1)
+	var n := int(sl.right(1))
+	var i := Acts.GEAR.find(gear[h][n])
+	gear[h][n] = Acts.GEAR[(i + 1) % Acts.GEAR.size()]
 
 
 ## The title's buttons: [rect, id, label].
@@ -251,7 +266,7 @@ func _press(p: Vector2) -> void:
 		return
 	if mode == "gear":
 		match _hit(gear_buttons(), p):
-			"left", "right":
+			"left0", "left1", "right0", "right1":
 				next_gear(_hit(gear_buttons(), p))
 			"fight":
 				begin()
@@ -266,7 +281,7 @@ func _press(p: Vector2) -> void:
 		var was := menu
 		menu = ""
 		if m != "":
-			if duel.spec(m).has("reload"):
+			if duel.spec(m).has("reload") or duel.spec(m).has("change"):
 				act(m, duel.hero.pos)
 			else:
 				tool = m

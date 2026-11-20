@@ -192,8 +192,8 @@ func _tools(d: Duel) -> void:
 	for b in main.menu_buttons():
 		var id: String = b[1]
 		var sp := d.spec(id)
-		var no: bool = d.cost(id) > d.stamina or (d.casts.has(id) and int(d.casts[id]) <= 0) \
-			or (sp.get("loaded", false) and not d.loaded.get(main.hand_of(id), false))
+		var no: bool = d.cost(id) > d.stamina or d.casts_left(id) == 0 \
+			or (sp.get("loaded", false) and not d.is_loaded(main.hand_of(id)))
 		_button(b[0], b[2], Pal.DIM.darkened(0.45) if no else Pal.INK, main.tool == id)
 	var s := str(d.step_n)
 	Pal.text(self, Vector2(380 - Pal.width(s), 178), s, Pal.DARK.lightened(0.2))
@@ -266,10 +266,11 @@ func _shot_path(d: Duel, k: String, ang: float, wind: int) -> void:
 
 func _gear() -> void:
 	position = Vector2.ZERO
-	Pal.text(self, Vector2(120 - Pal.width("LEFT HAND") / 2.0, 70), "LEFT HAND", Pal.DIM)
-	Pal.text(self, Vector2(264 - Pal.width("RIGHT HAND") / 2.0, 70), "RIGHT HAND", Pal.DIM)
+	Pal.text(self, Vector2(120 - Pal.width("LEFT HAND") / 2.0, 62), "LEFT HAND", Pal.DIM)
+	Pal.text(self, Vector2(264 - Pal.width("RIGHT HAND") / 2.0, 62), "RIGHT HAND", Pal.DIM)
 	for b in main.gear_buttons():
-		_button(b[0], b[2], Pal.INK if b[1] != "back" else Pal.DIM, b[1] == "fight")
+		var second := String(b[1]).ends_with("1")
+		_button(b[0], b[2], Pal.DIM if b[1] == "back" or second else Pal.INK, b[1] == "fight")
 
 
 func _title() -> void:

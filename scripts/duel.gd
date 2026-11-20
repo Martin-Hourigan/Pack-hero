@@ -10,14 +10,19 @@ extends RefCounted
 ## Numbers: Acts.HERO, Acts.ITEMS, Acts.SHOTS, Acts.KNIGHT.
 ##
 ## The hero's tools: move, roll, flask, wait, and "hand:thing" for what the
-## item in that hand does (Acts.ITEMS), e.g. "right:light", "left:block".
+## item in that hand does (Acts.ITEMS), e.g. "right:light", "left:block",
+## or SWAP, TWO HANDS, ONE HAND, TRANSFORM ("left:swap"; Acts.CHANGE).
+## Each hand has two slots and holds one; an item held in both hands (a
+## two-handed one, or one taken in TWO HANDS) puts the other hand's away.
 ##
 ## An action: {k, label, steps, b, hit (it has landed)}. A step:
-## {ph: wind / act / rec / move / roll / drink / wait / hurt / block / reload, clip, frame,
+## {ph: wind / act / rec / move / roll / drink / wait / hurt / block / reload / change, clip, frame,
 ## live (the blade hits), safe (hits miss you), to (walk there), fwd (px
 ## forward), track (turn toward the hero), dmg, heal, guard (degrees in
-## front where hits do nothing), shoot (Acts.SHOTS entry), reload (that hand
-## is loaded), mirror (the clip is played in the left hand)}.
+## front where hits are stopped), cut (how much of a stopped hit still
+## hurts), shoot (Acts.SHOTS entry), unload (the slot it empties), reload
+## (that slot is loaded), change ([hand, Acts.CHANGE entry]: done now),
+## mirror (the clip is played in the left hand)}.
 
 var hero: Unit
 var knight: Unit
@@ -28,12 +33,14 @@ var stamina := 0
 var flasks := 0
 var last_attack := ""  # the knight's last attack
 var rng := RandomNumberGenerator.new()
-var gear := {}  # hand -> Acts.ITEMS key (a two-handed item is in both)
-var casts := {}  # tool -> casts left
-var loaded := {}  # hand -> its crossbow is loaded
+var gear := {}  # hand -> [Acts.ITEMS key, Acts.ITEMS key]: its two slots
+var up := {"left": 0, "right": 0}  # the slot each hand holds
+var grip := ""  # the hand whose item is held in both hands ("" = none)
+var casts := {}  # "item:thing" -> casts left (full until used)
+var loaded := {}  # slot ("left0") -> its crossbow is loaded (it is until shot)
 var shots: Array = []  # {k, p, from, ang, left, by}
-var gone: Array = []
-var calm := 0  # steps since the knight was last hit  # shots that ended this step (drawn for one more step)
+var gone: Array = []  # shots that ended this step (drawn for one more step)
+var calm := 0  # steps since the knight was last hit
 
 # Effects (the view draws them; they don't change play).
 var numbers: Array = []  # {p, s, life, col}
@@ -44,14 +51,8 @@ var wiggle := {}  # HUD thing -> seconds left (a stamina bar that's too low)
 
 func _init(seed_ := 0, gear_ := Acts.HANDS) -> void:
 	rng.seed = seed_ if seed_ != 0 else int(Time.get_ticks_usec())
-	gear = gear_.duplicate()
-	for h in hands():
-		var does: Dictionary = item(h)["does"]
-		for o in does:
-			if does[o].has("casts"):
-				casts[h + ":" + o] = int(does[o]["casts"])
-			if does[o].get("loaded", false):
-				loaded[h] = true
+	gear = {"left": Array(gear_["left"]).duplicate(), "right": Array(gear_["right"]).duplicate()}
+	_settle("right")
 	hero = _add("hero", Vector2(110, 92), 0.0)
 	knight = _add("knight", Vector2(270, 92), PI)
 	knight.side = "enemy"
@@ -81,31 +82,110 @@ func rest(u: Unit) -> Dictionary:
 
 # ---------------------------------------------------------------- gear
 
-## Which hands have their own item: ["right"] when it's two-handed.
+## The item in hand h's held slot (Acts.ITEMS key).
+func held(h: String) -> String:
+	return gear[h][up[h]]
+
+
+## The hand whose slot has h's item: the gripping hand, if there is one.
+func owner(h: String) -> String:
+	return grip if grip != "" else h
+
+
+static func other(h: String) -> String:
+	return "left" if h == "right" else "right"
+
+
+## Which hands have their own item: just the gripping one, unless what it
+## holds is split into two halves.
 func hands() -> Array:
-	return ["right"] if int(item("right")["hands"]) == 2 else ["left", "right"]
+	if grip == "" or Acts.ITEMS[held(grip)].has("split"):
+		return ["left", "right"]
+	return [grip]
+
+
+## The Acts.ITEMS key of what hand h is holding (a split item's half).
+func item_key(h: String) -> String:
+	var o := owner(h)
+	var it: Dictionary = Acts.ITEMS[held(o)]
+	return it["split"][h] if it.has("split") else held(o)
 
 
 func item(h: String) -> Dictionary:
-	return Acts.ITEMS[gear[h]]
+	return Acts.ITEMS[item_key(h)]
 
 
-## The hands after putting `thing` in hand h: a two-handed item fills both;
-## a one-handed one put beside a two-handed one sends the other hand back
-## to what it starts with.
-static func equip(g: Dictionary, h: String, thing: String) -> Dictionary:
-	var out := g.duplicate()
-	var other := "left" if h == "right" else "right"
-	if int(Acts.ITEMS[thing]["hands"]) == 2:
-		out[h] = thing
-		out[other] = thing
-		return out
-	if int(Acts.ITEMS[out[h]]["hands"]) == 2:
-		out[other] = Acts.HANDS[other]
-		if out[other] == thing or int(Acts.ITEMS[out[other]]["hands"]) == 2:
-			out[other] = "kite shield" if thing != "kite shield" else "longsword"
-	out[h] = thing
+## Whether the one-handed item in h is held in both hands.
+func two_handed(h: String) -> bool:
+	return grip == h and int(item(h)["hands"]) == 1
+
+
+## Puppet node n of item `it` in hand h (one-handed items' end _r / _l).
+static func node_of(n: String, it: Dictionary, h: String) -> String:
+	return n if int(it["hands"]) == 2 else n + ("_r" if h == "right" else "_l")
+
+
+## Hand h's menu: {thing: what it does}, the item's own, then TWO HANDS or
+## ONE HAND, TRANSFORM and SWAP (in the hand whose slot it is).
+func options(h: String) -> Dictionary:
+	if not h in hands():
+		return {}
+	var it := item(h)
+	var out: Dictionary = (it["two"] if two_handed(h) and it.has("two") else it["does"]).duplicate()
+	if it.has("two"):
+		var g := "one hand" if two_handed(h) else "two hands"
+		out[g] = {"change": g}
+	if Acts.ITEMS[held(owner(h))].has("trick"):
+		out["transform"] = {"change": "transform"}
+	if owner(h) == h:
+		out["swap"] = {"change": "swap"}
 	return out
+
+
+## A two-handed item takes both hands: hand h's, else the other's.
+func _settle(h: String) -> void:
+	if grip != "":
+		return
+	for x in [h, other(h)]:
+		if int(Acts.ITEMS[held(x)]["hands"]) == 2:
+			grip = x
+			return
+
+
+## Hand h does an Acts.CHANGE.
+func _change(h: String, what: String) -> void:
+	var o := owner(h)
+	match what:
+		"swap":
+			up[o] = 1 - int(up[o])
+			if grip == o:
+				grip = ""
+			_settle(o)
+		"two hands":
+			grip = h
+		"one hand":
+			grip = ""
+			_settle(h)
+		"transform":
+			gear[o][up[o]] = Acts.ITEMS[held(o)]["trick"]
+			_settle(o)
+
+
+## The slot hand h holds ("left0").
+func slot(h: String) -> String:
+	return h + str(up[h])
+
+
+func is_loaded(h: String) -> bool:
+	return bool(loaded.get(slot(h), true))
+
+
+## Casts tool k has left (-1: it has no limit).
+func casts_left(k: String) -> int:
+	var s := spec(k)
+	if not s.has("casts"):
+		return -1
+	return int(casts.get(item_key(k.split(":")[0]) + ":" + k.split(":")[1], int(s["casts"])))
 
 
 ## What tool k ("hand:thing") does, from Acts.ITEMS ({} = not a hand's).
@@ -113,7 +193,7 @@ func spec(k: String) -> Dictionary:
 	var hk := k.split(":")
 	if hk.size() != 2 or not gear.has(hk[0]):
 		return {}
-	return item(hk[0])["does"].get(hk[1], {})
+	return options(hk[0]).get(hk[1], {})
 
 
 ## The hero's pose: what's in each hand held, and clip k at frame f on top
@@ -122,10 +202,12 @@ func hero_pose(k: String, f: float, mirror: bool, parts := {}) -> Dictionary:
 	var path := String(Acts.DUEL_UNITS["hero"]["art"])
 	var out := RigArt.pose(path, "", 0.0)
 	var shown := {}
-	for h in ["left", "right"]:
+	var look := {}
+	for h in hands():
 		var it := item(h)
+		look.merge(it.get("look", {}))
 		for n in it["nodes"]:
-			shown[n if int(it["hands"]) == 2 else n + ("_r" if h == "right" else "_l")] = true
+			shown[node_of(n, it, h)] = true
 	for th in Acts.ITEMS:
 		var it: Dictionary = Acts.ITEMS[th]
 		for n in it["nodes"]:
@@ -133,14 +215,18 @@ func hero_pose(k: String, f: float, mirror: bool, parts := {}) -> Dictionary:
 				if out.has(nn):
 					out[nn]["vis"] = shown.has(nn)
 	for h in hands():
-		var hold := String(item(h)["key"]) + "_hold"
-		_over(out, RigArt.track_pose(path, hold, 0.0), h == "left")
+		var it := item(h)
+		var hold := String(it["key"]) + ("2_hold" if two_handed(h) else "_hold")
+		_over(out, RigArt.track_pose(path, hold, 0.0), h == "left" and int(it["hands"]) == 1)
 	if k != "":
 		_over(out, RigArt.track_pose(path, k, f), mirror)
-	for h in loaded:
-		var n := "xb_bolt_" + ("r" if h == "right" else "l")
+	for h in hands():
+		var n := node_of("xb_bolt", item(h), h)
+		if item(h)["key"] == "xb" and out.has(n):
+			out[n]["vis"] = is_loaded(h)
+	for n in look:
 		if out.has(n):
-			out[n]["vis"] = bool(loaded[h])
+			out[n]["part"] = look[n]
 	for n in parts:
 		if out.has(n):
 			out[n]["part"] = parts[n]
@@ -241,27 +327,33 @@ func shape(k: String, at: Vector2) -> Dictionary:
 	var h := k.split(":")[0]
 	var it := item(h)
 	var mirror := h == "left" and int(it["hands"]) == 1
-	var side := "r" if h == "right" else "l"
 	var a: Dictionary
-	if s.has("block"):
-		a = _act(k, [{"ph": "block", "clip": s["clip"], "frame": 1, "face": aim, "guard": float(s["block"]), "mirror": mirror}])
+	if s.has("change"):
+		var steps := []
+		for i in int(Acts.CHANGE[s["change"]]):
+			steps.append({"ph": "change"})
+		steps[steps.size() - 1]["change"] = [h, s["change"]]
+		a = _act(k, steps)
+	elif s.has("block"):
+		a = _act(k, [{"ph": "block", "clip": s["clip"], "frame": 1, "face": aim, "guard": float(s["block"]),
+			"cut": float(s.get("cut", 0.0)), "mirror": mirror}])
 	elif s.has("reload"):
 		var steps := []
 		for i in range(1, int(s["reload"]) + 1):
 			steps.append({"ph": "reload", "clip": s["clip"], "frame": i, "mirror": mirror})
-		steps[steps.size() - 1]["reload"] = h
+		steps[steps.size() - 1]["reload"] = slot(h)
 		a = _act(k, steps)
 	else:
 		var steps := attack_steps(s)
 		for st in steps:
 			st.erase("track")
 			st["mirror"] = mirror
-			if st.has("shoot"):
-				st["hand"] = h
+			if st.has("shoot") and s.get("loaded", false):
+				st["unload"] = slot(h)
 		steps[0]["face"] = aim
 		a = _act(k, steps)
 		if it.has("blade"):
-			a["blade"] = String(it["blade"]) + ("" if int(it["hands"]) == 2 else "_" + side)
+			a["blade"] = node_of(String(it["blade"]), it, h)
 	a["label"] = k.split(":")[1].to_upper()
 	if s.has("parts"):
 		a["parts"] = s["parts"]
@@ -285,8 +377,8 @@ func plan(k: String, at: Vector2) -> bool:
 		return false
 	var s := spec(k)
 	var h := k.split(":")[0]
-	if (casts.has(k) and int(casts[k]) <= 0) or (s.get("loaded", false) and not loaded.get(h, false)):
-		wiggle["hand:" + ("right" if hands().size() == 1 else h)] = 0.4
+	if casts_left(k) == 0 or (s.get("loaded", false) and not is_loaded(h)):
+		wiggle["hand:" + (hands()[0] if hands().size() == 1 else h)] = 0.4
 		return false
 	var a := shape(k, at)
 	if a.is_empty():
@@ -294,8 +386,8 @@ func plan(k: String, at: Vector2) -> bool:
 			wiggle["flasks"] = 0.4
 		return false
 	stamina -= cost(k)
-	if casts.has(k):
-		casts[k] = int(casts[k]) - 1
+	if casts_left(k) > 0:
+		casts[item_key(h) + ":" + k.split(":")[1]] = casts_left(k) - 1
 	if k == "flask":
 		flasks -= 1
 	hero.cur = a
@@ -363,9 +455,12 @@ func step() -> void:
 	_keep_apart()
 	var st_h := current(hero)
 	if st_h.has("shoot"):
-		_shoot(String(st_h["shoot"]), String(st_h.get("hand", "right")))
+		_shoot(String(st_h["shoot"]), String(st_h.get("unload", "")))
 	if st_h.has("reload"):
 		loaded[String(st_h["reload"])] = true
+	if st_h.has("change"):
+		_change(String(st_h["change"][0]), String(st_h["change"][1]))
+		hero.pose = rest(hero)
 	# The blades.
 	for u in units:
 		var st := current(u)
@@ -379,6 +474,9 @@ func step() -> void:
 			u.cur["hit"] = true
 			if blocks(v, at):
 				_blocked(at)
+				var through := roundi(int(st["dmg"]) * float(current(v).get("cut", 0.0)))
+				if through > 0:
+					_chip(v, through)
 			else:
 				_hurt(v, u, int(st["dmg"]))
 	for u in units:
@@ -520,6 +618,13 @@ func _blocked(at: Vector2) -> void:
 	shake_amt = maxf(shake_amt, 1.0)
 
 
+## What gets through a block: damage, but no knock back.
+func _chip(v: Unit, d: int) -> void:
+	v.hp -= d
+	v.flash = 1.0
+	_number(v.pos + Vector2(0, -12), str(d), Pal.DANGER)
+
+
 ## u's blade polygons (node `node`), posed `pose`, standing at p facing a.
 func blade(u: Unit, pose: Dictionary, p: Vector2, a: float, node := "blade") -> Array:
 	var s := float(u.data()["scale"])
@@ -617,11 +722,12 @@ func shot_from(u: Unit, ang: float, p := Vector2.INF) -> Vector2:
 	return (u.pos if p == Vector2.INF else p) + Vector2.from_angle(ang) * (_radius(u) + 2.0)
 
 
-func _shoot(k: String, h: String) -> void:
+## Shot k leaves; `unload`: the crossbow's slot it empties.
+func _shoot(k: String, unload: String) -> void:
 	shots.append({"k": k, "p": shot_from(hero, hero.ang), "from": shot_from(hero, hero.ang), "ang": hero.ang,
 		"left": int(Acts.SHOTS[k]["steps"]), "by": hero, "new": true})
-	if loaded.has(h):
-		loaded[h] = false
+	if unload != "":
+		loaded[unload] = false
 		hero.pose = pose_for(hero, current(hero), hero.cur)
 
 

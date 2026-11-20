@@ -117,6 +117,45 @@ BUILT, PLACEHOLDER: the knight has 100 poise. Your hits' damage adds up
 8 steps without a hit and it's back to 0. A thin line under his health bar
 shows it filling. The hero's own stagger is still the 2 lost steps.
 
+TWO ITEMS A HAND, TWO-HANDING, TRICK WEAPONS (2026-11-20)
+DECIDED (Martin; "yes for all assumptions for now")
+- Two items in each hand. The gear screen has two slots a hand; in the
+  fight a hand's menu has SWAP, to its other item (1 step).
+- Two-handing: a one-handed melee weapon's menu has TWO HANDS (back with
+  ONE HAND). The other hand's item is put away and its button goes until
+  you let go. Two-handed, a melee weapon can BLOCK (aimed like the
+  shield's); a weapon block stops half the damage. Two-handing does
+  nothing else.
+- The claymore can be held in one hand: more stamina, less damage than
+  two-handed. The bow stays two-handed only.
+- Trick weapons, like Bloodborne's: TRANSFORM in the menu switches form
+  (1 step); no transform attacks yet.
+  - QUARTERSTAFF (two-handed): LIGHT a quick strike, HEAVY a wide sweep;
+    turns into a BOW (ARROW, FIRE ARROW, HEAVY SHOT).
+  - GREATSPEAR (two-handed): LIGHT a long thrust, HEAVY a lunging thrust;
+    separates into a SPEAR STAFF (left hand: BOLT, HEAVY BOLT) and a
+    SHORTSWORD (right hand: LIGHT a fast stab, HEAVY a slash, shorter and
+    cheaper than the longsword). The halves stay together; TRANSFORM joins
+    them back.
+PLACEHOLDER
+- All the new numbers. One-handed claymore: about 1.5x the stamina, 0.7x
+  the damage.
+- Going to two hands and back takes 1 step too.
+- A two-handed-only weapon (bow, quarterstaff, greatspear) can BLOCK too.
+- A weapon-blocked hit does half damage but doesn't knock you back.
+- A weapon keeps its form when swapped away and back.
+- Casts are counted per item (two staffs would share them); a crossbow's
+  loaded or not per slot.
+- Swapping to a two-handed item takes both hands; swapping away from it,
+  if the other hand's item is two-handed too, that one takes both.
+- The shortsword can't be two-handed (the spear staff is in the other hand).
+- SWAP, while the greatspear is split, is in the menu of the hand whose
+  slot it's in (the SHORTSWORD's, when it's in the right hand).
+- New items' looks and clips made by the script (scratchpad make_hero.py).
+BUILT: all of the above. Gear screen: two slots a hand, the top one held
+first (the second dimmer). Starting gear: kite shield / staff, longsword /
+claymore.
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 
