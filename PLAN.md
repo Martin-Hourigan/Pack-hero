@@ -285,6 +285,17 @@ enemies hit before they've seen you still wake; once awake they never give
 up; the walls are thin lines on the edge of the wall squares. Dev:
 --room=N starts in area N.
 
+HIDDEN (2026-11-21)
+DECIDED (Martin): like a D&D thief, attacking from hiding for a sneak
+attack; make a status for not spotted / hidden first. The sneak attack
+itself will be a skill on a weapon or a catalyst (maybe a thief catalyst),
+thought about later.
+BUILT: Duel.hidden_from(enemy): the hero is HIDDEN from an enemy until it
+spots him (sees him within aggro, or is hit). A shut eye over each enemy
+he's hidden from. It does nothing yet.
+PLACEHOLDER: hidden is per enemy (as in D&D, hidden from a creature); the
+shut eye; once spotted there's no hiding again (they never give up).
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 

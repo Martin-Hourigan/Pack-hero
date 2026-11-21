@@ -38,6 +38,7 @@ func _draw() -> void:
 	for u in order:
 		_unit(d, u)
 	_foe_bars(d)
+	_hidden(d)
 	_shots(d)
 	_reticles(d)
 	for s in d.sparks:
@@ -120,6 +121,16 @@ func _foe_bars(d: Duel) -> void:
 			var at := _px(f.pos + Vector2(-5, -11))
 			draw_rect(Rect2(at, Vector2(10, 1)), Pal.DARK)
 			draw_rect(Rect2(at, Vector2(round(10.0 * f.hp / f.max_hp), 1)), Pal.DIM)
+
+
+## HIDDEN: a shut eye over each enemy (seen) the hero is hidden from.
+func _hidden(d: Duel) -> void:
+	for f in d.foes:
+		if d.hidden_from(f) and d.can_see(f.pos):
+			var at := _px(f.pos + Vector2(-2, -Duel._radius(f) - 6))
+			draw_rect(Rect2(at, Vector2(1, 1)), Pal.DIM)
+			draw_rect(Rect2(at + Vector2(4, 0), Vector2(1, 1)), Pal.DIM)
+			draw_rect(Rect2(at + Vector2(1, 1), Vector2(3, 1)), Pal.DIM)
 
 
 ## Every enemy's swing still to come: the ground each hitting step sweeps

@@ -979,6 +979,11 @@ func los(a: Vector2, b: Vector2) -> bool:
 
 
 ## Whether the hero can see p now.
+## HIDDEN: the hero is hidden from an enemy that hasn't spotted him yet.
+func hidden_from(u: Unit) -> bool:
+	return u.side == "enemy" and u.alive() and not u.aware
+
+
 func can_see(p: Vector2) -> bool:
 	var q := square(p)
 	return sight[q.y * fog_size.x + q.x] == 1

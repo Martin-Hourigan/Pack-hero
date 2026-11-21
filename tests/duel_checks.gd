@@ -450,6 +450,7 @@ func _rooms() -> void:
 		_still(d, 1)
 		d.step()
 		check(e.aware == k[2], "an enemy %s: %s" % [k[0], "comes" if k[2] else "waits"])
+		check(d.hidden_from(e) != k[2], "an enemy %s: %s" % [k[0], "spotted" if k[2] else "hidden from"])
 	# One that's seen you finds its way round the pillar.
 	e.pos = Vector2(pl.position.x - 20, pl.get_center().y)
 	e.cur = {}
