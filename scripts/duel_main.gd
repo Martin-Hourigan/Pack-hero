@@ -46,8 +46,8 @@ const STEP_T := 0.07  # s a step takes on screen
 const HOLD_T := 0.3  # s from one step to the next while WAIT is held
 const TOOLS := [["1", "move"], ["2", "roll"], ["3", "hand:left"], ["4", "hand:right"], ["5", "flask"]]
 const KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5]
-const TOGGLES := [["Q", "lock", "LOCK"], ["E", "two", "2H"], ["F", "guard", "GUARD"]]
-const TOGGLE_KEYS := [KEY_Q, KEY_E, KEY_F]
+const TOGGLES := [["Q", "lock", "LOCK"], ["C", "crouch", "CROUCH"], ["E", "two", "2H"], ["F", "guard", "GUARD"]]
+const TOGGLE_KEYS := [KEY_Q, KEY_C, KEY_E, KEY_F]
 const NOT_IN_MENU := ["block", "two hands", "one hand"]  # the toggles do these
 const SAME_TAP := 10.0  # px: a second tap this near the aim does it
 const VIEW := Rect2(84, 0, 216, 216)  # the world's square on the screen
@@ -123,6 +123,8 @@ func _ready() -> void:
 			duel.plan(String(flags["dohero"]).replace("_", " "), duel.foes[0].pos)
 		if flags.has("blocking"):
 			duel.toggle_guard()
+		if flags.has("crouch"):
+			duel.toggle_crouch()
 		if flags.has("lock"):
 			duel.target = duel.foes[0]
 		picking = flags.has("picking")
@@ -286,9 +288,10 @@ func buttons() -> Array:
 	return out
 
 
-## The toggles: LOCK on the left, 2H and GUARD on the right: [rect, id,
-## label].
-const TOGGLE_PLACES := {"lock": Rect2(4, 140, 76, 16), "two": Rect2(304, 140, 76, 16), "guard": Rect2(304, 160, 76, 16)}
+## The toggles: LOCK and CROUCH on the left, 2H and GUARD on the right:
+## [rect, id, label].
+const TOGGLE_PLACES := {"lock": Rect2(4, 140, 76, 16), "crouch": Rect2(4, 160, 76, 16),
+	"two": Rect2(304, 140, 76, 16), "guard": Rect2(304, 160, 76, 16)}
 func toggle_buttons() -> Array:
 	var out := []
 	for t in TOGGLES:
@@ -305,6 +308,8 @@ func toggled(id: String) -> bool:
 			return duel.grip != "" and duel.two_handed(duel.grip)
 		"guard":
 			return duel.guard
+		"crouch":
+			return duel.hero.crouch
 	return false
 
 
@@ -333,6 +338,8 @@ func toggle(id: String) -> void:
 				act(t, duel.hero.pos)
 		"guard":
 			duel.toggle_guard()
+		"crouch":
+			duel.toggle_crouch()
 
 
 ## The hand whose item does tool k ("" = none).

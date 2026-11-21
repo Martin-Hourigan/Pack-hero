@@ -510,7 +510,25 @@ func _hiding() -> void:
 	check(not d.spots(e), "behind an enemy, outside its cone: not seen")
 	e.ang = PI
 	d.hero.pos = Vector2(192, 100)
-	check(not d.spots(e), "up against a low wall: hidden")
+	check(d.spots(e), "standing up against a low wall: seen")
+	d.toggle_crouch()
+	check(not d.spots(e), "crouching up against it: hidden")
+	d._look()
+	check(not d.sees(e) and not d.can_see(Vector2(230, 100)), "crouching behind it you see nothing past it")
+	d.hero.pos = Vector2(184, 100)
+	check(not d.spots(e), "crouching a little way back: still in its shadow")
+	d.hero.pos = Vector2(150, 100)
+	check(d.spots(e), "crouching further back: seen")
+	d.hero.pos = Vector2(150, 100)
+	var walk := d.shape("move", Vector2(170, 100))
+	check(walk["steps"][0]["to"].distance_to(d.hero.pos) == Acts.HERO["crouch_walk"], "crouching: slower walking")
+	_still(d, 0)
+	d.hero.cur = {}
+	check(d.plan("wait", d.hero.pos) and d.hero.crouch, "waiting: still crouching")
+	d.hero.cur = {}
+	check(d.plan("roll", Vector2(170, 100)) and not d.hero.crouch, "anything else: up")
+	d.hero.cur = {}
+	d.hero.pos = Vector2(192, 100)
 	check(not d.fits(Duel._radius(d.hero), Vector2(204, 100)) and d.open_at(Vector2(204, 100)), "a low wall: no walking through, shots go over")
 	check(d.fits(Duel._radius(d.hero), Vector2(116, 100)) and d.open_at(Vector2(116, 100)), "a shrub: walking and shots go through")
 	# In a shrub.

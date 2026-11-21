@@ -75,8 +75,9 @@ const ARENA := Rect2(12, 12, 360, 158)
 ## each area (the run starts in the first). pillars: Rect2s that block
 ## walking, shots and sight. shrubs: Rect2s you can walk through that hide
 ## what's in them (shots go through). low walls: Rect2s that block walking;
-## you can see and shoot over them, but they hide whoever's up against
-## the far side. foes: {k (Acts.FOES), at, a (facing; left if
+## you can see and shoot over them; crouching behind one you see nothing
+## past it, and someone crouching on the far side is hidden near it (more
+## the further you are from it). foes: {k (Acts.FOES), at, a (facing; left if
 ## not said)}. All PLACEHOLDER.
 const MAP := {
 	"areas": [Rect2(0, 0, 360, 200), Rect2(420, 0, 420, 260), Rect2(400, 320, 460, 320), Rect2(0, 380, 360, 200)],
@@ -103,9 +104,14 @@ const AGGRO := 100.0
 const CONE := 120.0
 ## From in a shrub you see only this far (px). PLACEHOLDER.
 const SHRUB_SIGHT := 40.0
-## Within this of a low wall (px, past the body), whoever's on the far
-## side can't see you. PLACEHOLDER.
+## Crouching within this of a low wall (px, past the body), you see
+## nothing past it. PLACEHOLDER.
 const LOW_HIDE := 8.0
+## Someone crouching past a low wall is hidden within this of it (px, past
+## the body), plus a px for every LOW_SPREAD px you are from the wall.
+## PLACEHOLDER.
+const LOW_SHADOW := 8.0
+const LOW_SPREAD := 4.0
 ## Line of sight is worked out in squares this many px across.
 const FOG := 4
 
@@ -161,6 +167,7 @@ const SWEEP_CHECKS := 6
 ## low); `lunge`: px forward each swing step; `st`: the hero's stamina cost.
 const HERO := {
 	"walk": 4.0,  # px a step
+	"crouch_walk": 2.0,  # px a step, crouching (PLACEHOLDER)
 	"stamina": 100,
 	"stamina_back": 4,  # a step, when not attacking, rolling or drinking
 	"guard_back": 2,  # instead, while GUARD is on

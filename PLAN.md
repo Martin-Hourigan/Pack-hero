@@ -316,8 +316,28 @@ PLACEHOLDER: cone 120 degrees; shrub sight 40 px; low wall hide 8 px;
 turn speeds are the old wind-up ones (knight 25, soldier 40, spearman and
 archer 30); where the shrubs and walls are; their look (muted green,
 lighter-edged block).
-OPEN: show the start of an enemy's cone "maybe just when you're
-crouching", but there's no crouching; not built. ALERTED status: later.
+OPEN: ALERTED status: later.
+
+CROUCH (2026-11-21)
+DECIDED (Martin): crouching behind a low wall, you can't see anything
+past the wall. Standing next to a low wall, you can't see anything
+crouching right next to the far side, and that grows the further you are
+from the wall. Crouching: slower walking, less sound. Besides that (and
+sound) it doesn't help at all. Anything but moving and waiting takes you
+out of crouch (you can get a ranged attack off, but not stay crouched;
+maybe a special weapon could, or staying crouched after a crouching melee
+kill, later). The rules are the same for everyone. The start of the
+enemies' cones shows while crouching.
+BUILT: a CROUCH toggle (C, left side). Unit.crouch; Acts.HERO crouch_walk;
+low walls as above (Acts.LOW_HIDE, LOW_SHADOW, LOW_SPREAD); standing next
+to a low wall no longer hides you. Dev: --crouch starts crouched.
+PLACEHOLDER: crouch walk 2 px a step (half); seeing nothing past a low
+wall when crouching within 8 px of it; the shadow 8 px + 1 px for every
+4 px the viewer is from the wall; the cone starts are two dotted lines
+16 px long; no crouching pose; being hit doesn't stand you up; crouching
+mid-walk only slows the next walk.
+OPEN: SOUND (crouching makes less): there's no sound yet; what it does
+is to be decided.
 
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).

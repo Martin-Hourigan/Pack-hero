@@ -45,6 +45,7 @@ func _draw() -> void:
 		_unit(d, u)
 	_foe_bars(d)
 	_hidden(d)
+	_cones(d)
 	_shots(d)
 	_reticles(d)
 	for s in d.sparks:
@@ -146,6 +147,18 @@ func _hidden(d: Duel) -> void:
 			draw_rect(Rect2(at, Vector2(1, 1)), Pal.DIM)
 			draw_rect(Rect2(at + Vector2(4, 0), Vector2(1, 1)), Pal.DIM)
 			draw_rect(Rect2(at + Vector2(1, 1), Vector2(3, 1)), Pal.DIM)
+
+
+## CROUCH: the start of each enemy's cone (seen) it spots the hero in.
+func _cones(d: Duel) -> void:
+	if not d.hero.crouch:
+		return
+	for f in d.foes:
+		if f.alive() and d.sees(f):
+			var r := Duel._radius(f)
+			for s in [-1, 1]:
+				var w := Vector2.from_angle(f.ang + s * deg_to_rad(Acts.CONE / 2.0))
+				_dots(f.pos + w * (r + 2.0), f.pos + w * (r + 18.0), Pal.DIM)
 
 
 ## Every enemy's swing still to come: the ground each hitting step sweeps
