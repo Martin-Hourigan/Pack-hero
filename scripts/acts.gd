@@ -112,6 +112,12 @@ const LOW_HIDE := 8.0
 ## PLACEHOLDER.
 const LOW_SHADOW := 8.0
 const LOW_SPREAD := 4.0
+## SOUND: the hero doing anything but waiting makes noise (his items' noise
+## added up, halved crouching) that reaches that many px. The outer
+## NOISE_BAND px of it are low (an enemy turns to it), the next NOISE_BAND
+## in medium (it goes to look), anything nearer loud (it spots him).
+## Walls and closed doors stop it. PLACEHOLDER.
+const NOISE_BAND := 30.0
 ## Line of sight is worked out in squares this many px across.
 const FOG := 4
 
@@ -195,6 +201,7 @@ const CHANGE := {"swap": 1, "two hands": 1, "one hand": 1, "transform": 1}
 ## what's drawn when it's held. look: {node: part} it swaps in. blade: the
 ## node that hits. does: its hand's menu, in order. two: a one-handed
 ## item's menu held in two hands. trick: what TRANSFORM turns it into.
+## noise: how loud it is (the hero's noise is what he holds added up).
 ## split: the hands its halves go in (an item of two one-handed ones).
 ## An attack: clip, wind, swing, rec (steps), live (swing steps that hit),
 ## dmg, st (stamina), lunge (px a swing step). shot: SHOTS entry, fired on
@@ -203,7 +210,7 @@ const CHANGE := {"swap": 1, "two hands": 1, "one hand": 1, "transform": 1}
 ## hits are stopped); cut: how much of a stopped hit still hurts. Anything
 ## but walking or waiting drops GUARD, unless "keeps guard".
 const ITEMS := {
-	"longsword": {"name": "LONGSWORD", "hands": 1, "key": "ls", "nodes": ["ls_hilt", "ls_blade"], "blade": "ls_blade", "does": {
+	"longsword": {"name": "LONGSWORD", "hands": 1, "noise": 15, "key": "ls", "nodes": ["ls_hilt", "ls_blade"], "blade": "ls_blade", "does": {
 		"light": {"clip": "ls_light", "wind": 1, "swing": 4, "rec": 2, "live": [1, 2, 3, 4], "dmg": 30, "st": 20},
 		"heavy": {"clip": "ls_heavy", "wind": 3, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 55, "st": 35},
 	}, "two": {
@@ -211,11 +218,11 @@ const ITEMS := {
 		"heavy": {"clip": "ls2_heavy", "wind": 3, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 55, "st": 35},
 		"block": {"clip": "ls2_block", "block": 180.0, "cut": 0.5, "st": 0},
 	}},
-	"kite shield": {"name": "KITE SHIELD", "hands": 1, "key": "sh", "nodes": ["sh"], "does": {
+	"kite shield": {"name": "KITE SHIELD", "hands": 1, "noise": 15, "key": "sh", "nodes": ["sh"], "does": {
 		"block": {"clip": "sh_block", "block": 180.0, "st": 0},
 	}},
 	# One-handed: about 1.5x the stamina and 0.7x the damage of two-handed.
-	"claymore": {"name": "CLAYMORE", "hands": 1, "key": "cm", "nodes": ["cm_hilt", "cm_blade"], "blade": "cm_blade", "does": {
+	"claymore": {"name": "CLAYMORE", "hands": 1, "noise": 30, "key": "cm", "nodes": ["cm_hilt", "cm_blade"], "blade": "cm_blade", "does": {
 		"light": {"clip": "cm_light", "wind": 2, "swing": 5, "rec": 2, "live": [1, 2, 3, 4, 5], "dmg": 35, "st": 45},
 		"heavy": {"clip": "cm_heavy", "wind": 3, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 63, "st": 68},
 	}, "two": {
@@ -223,54 +230,54 @@ const ITEMS := {
 		"heavy": {"clip": "cm2_heavy", "wind": 3, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 90, "st": 45},
 		"block": {"clip": "cm2_block", "block": 180.0, "cut": 0.5, "st": 0},
 	}},
-	"bow": {"name": "BOW", "hands": 2, "key": "bow", "nodes": ["bow", "bow_string", "arrow"], "does": {
+	"bow": {"name": "BOW", "hands": 2, "noise": 5, "key": "bow", "nodes": ["bow", "bow_string", "arrow"], "does": {
 		"arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "arrow", "st": 15},
 		"fire arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
 		"heavy shot": {"clip": "bow_heavy", "wind": 7, "swing": 1, "rec": 1, "shot": "heavy arrow", "st": 30},
 	}},
 	# The farthest reach: slower to draw, harder hits.
-	"greatbow": {"name": "GREATBOW", "hands": 2, "key": "gb", "nodes": ["gb", "gb_string", "gb_arrow"], "does": {
+	"greatbow": {"name": "GREATBOW", "hands": 2, "noise": 20, "key": "gb", "nodes": ["gb", "gb_string", "gb_arrow"], "does": {
 		"arrow": {"clip": "gb_shot", "wind": 7, "swing": 1, "rec": 1, "shot": "great arrow", "st": 25},
 		"heavy shot": {"clip": "gb_heavy", "wind": 9, "swing": 1, "rec": 2, "shot": "heavy great arrow", "st": 40},
 	}},
-	"crossbow": {"name": "CROSSBOW", "hands": 1, "key": "xb", "nodes": ["xb", "xb_bolt"], "does": {
+	"crossbow": {"name": "CROSSBOW", "hands": 1, "noise": 15, "key": "xb", "nodes": ["xb", "xb_bolt"], "does": {
 		"bolt": {"clip": "xb_shot", "wind": 0, "swing": 1, "rec": 1, "shot": "bolt", "st": 10, "loaded": true},
 		"poison bolt": {"clip": "xb_shot", "wind": 0, "swing": 1, "rec": 1, "shot": "poison bolt", "st": 10, "loaded": true},
 		"reload": {"clip": "xb_reload", "reload": 4, "st": 0},
 	}},
-	"staff": {"name": "STAFF", "hands": 1, "key": "st", "nodes": ["st"], "does": {
+	"staff": {"name": "STAFF", "hands": 1, "noise": 5, "key": "st", "nodes": ["st"], "does": {
 		"bolt": {"clip": "st_bolt", "wind": 3, "swing": 1, "rec": 1, "shot": "magic bolt", "st": 20, "casts": 20},
 		"heavy bolt": {"clip": "st_heavy", "wind": 5, "swing": 1, "rec": 2, "shot": "heavy magic bolt", "st": 40, "casts": 20},
 	}},
 	# Trick weapons: TRANSFORM goes between the forms.
-	"quarterstaff": {"name": "QUARTERSTAFF", "hands": 2, "key": "qs", "nodes": ["qs"], "blade": "qs", "trick": "quarterstaff bow", "does": {
+	"quarterstaff": {"name": "QUARTERSTAFF", "hands": 2, "noise": 15, "key": "qs", "nodes": ["qs"], "blade": "qs", "trick": "quarterstaff bow", "does": {
 		"light": {"clip": "qs_light", "wind": 1, "swing": 2, "rec": 1, "live": [1, 2], "dmg": 20, "st": 15},
 		"heavy": {"clip": "qs_heavy", "wind": 2, "swing": 4, "rec": 2, "live": [1, 2, 3, 4], "dmg": 40, "st": 30},
 		"block": {"clip": "qs_block", "block": 180.0, "cut": 0.5, "st": 0},
 	}},
-	"quarterstaff bow": {"name": "BOW", "hands": 2, "key": "bow", "nodes": ["bow", "bow_string", "arrow"], "look": {"bow": "qs_bow"},
+	"quarterstaff bow": {"name": "BOW", "hands": 2, "noise": 15, "key": "bow", "nodes": ["bow", "bow_string", "arrow"], "look": {"bow": "qs_bow"},
 		"trick": "quarterstaff", "does": {
 		"arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "arrow", "st": 15},
 		"fire arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
 		"heavy shot": {"clip": "bow_heavy", "wind": 7, "swing": 1, "rec": 1, "shot": "heavy arrow", "st": 30},
 	}},
-	"greatspear": {"name": "GREATSPEAR", "hands": 2, "key": "gs", "nodes": ["gs", "gs_head"], "blade": "gs_head", "trick": "greatspear split", "does": {
+	"greatspear": {"name": "GREATSPEAR", "hands": 2, "noise": 30, "key": "gs", "nodes": ["gs", "gs_head"], "blade": "gs_head", "trick": "greatspear split", "does": {
 		"light": {"clip": "gs_light", "wind": 1, "swing": 2, "rec": 2, "live": [1, 2], "dmg": 35, "st": 20},
 		"heavy": {"clip": "gs_heavy", "wind": 3, "swing": 3, "rec": 3, "live": [2, 3], "lunge": 4.0, "dmg": 70, "st": 40},
 		"block": {"clip": "gs_block", "block": 180.0, "cut": 0.5, "st": 0},
 	}},
-	"greatspear split": {"name": "GREATSPEAR", "hands": 2, "key": "", "nodes": [], "trick": "greatspear", "does": {},
+	"greatspear split": {"name": "GREATSPEAR", "hands": 2, "noise": 30, "key": "", "nodes": [], "trick": "greatspear", "does": {},
 		"split": {"left": "spear staff", "right": "shortsword"}},
-	"spear staff": {"name": "SPEAR STAFF", "hands": 1, "key": "gst", "nodes": ["gst"], "does": {
+	"spear staff": {"name": "SPEAR STAFF", "hands": 1, "noise": 15, "key": "gst", "nodes": ["gst"], "does": {
 		"bolt": {"clip": "st_bolt", "wind": 3, "swing": 1, "rec": 1, "shot": "magic bolt", "st": 20, "casts": 20},
 		"heavy bolt": {"clip": "st_heavy", "wind": 5, "swing": 1, "rec": 2, "shot": "heavy magic bolt", "st": 40, "casts": 20},
 	}},
 	# One-handed, so a shield can stay up: its LIGHT keeps GUARD on.
-	"pike": {"name": "PIKE", "hands": 1, "key": "pk", "nodes": ["pk", "pk_head"], "blade": "pk_head", "does": {
+	"pike": {"name": "PIKE", "hands": 1, "noise": 15, "key": "pk", "nodes": ["pk", "pk_head"], "blade": "pk_head", "does": {
 		"light": {"clip": "pk_light", "wind": 1, "swing": 2, "rec": 1, "live": [1, 2], "dmg": 25, "st": 15, "keeps guard": true},
 		"heavy": {"clip": "pk_heavy", "wind": 2, "swing": 3, "rec": 2, "live": [2, 3], "lunge": 3.0, "dmg": 50, "st": 30},
 	}},
-	"shortsword": {"name": "SHORTSWORD", "hands": 1, "key": "ss", "nodes": ["ss_hilt", "ss_blade"], "blade": "ss_blade", "does": {
+	"shortsword": {"name": "SHORTSWORD", "hands": 1, "noise": 15, "key": "ss", "nodes": ["ss_hilt", "ss_blade"], "blade": "ss_blade", "does": {
 		"light": {"clip": "ss_light", "wind": 1, "swing": 2, "rec": 1, "live": [1, 2], "dmg": 18, "st": 12},
 		"heavy": {"clip": "ss_heavy", "wind": 2, "swing": 3, "rec": 2, "live": [1, 2, 3], "dmg": 35, "st": 25},
 	}},

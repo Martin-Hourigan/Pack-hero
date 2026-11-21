@@ -336,8 +336,27 @@ wall when crouching within 8 px of it; the shadow 8 px + 1 px for every
 4 px the viewer is from the wall; the cone starts are two dotted lines
 16 px long; no crouching pose; being hit doesn't stand you up; crouching
 mid-walk only slows the next walk.
-OPEN: SOUND (crouching makes less): there's no sound yet; what it does
-is to be decided.
+
+SOUND (2026-11-22)
+DECIDED (Martin): weapons and armour make noise; noise is linear, every
+item's noise added up. It goes out from you in rings: the outer 30 is
+low (an enemy turns, not suspicious), the 30 inside that medium (turns
+and comes to look), anything nearer loud (turns and is alerted). 40
+noise: 10 medium, then the full 30 low; low-noise gear never gets past
+low; past 60 the loud just grows. Plate mail in a shrub: the enemy
+comes to look and finds you. The ring shows only while crouching, and
+so does whether you've been spotted (the shut eyes); standing, noise
+still works, you just don't see it.
+BUILT: ITEMS noise; Duel.noise() (held items added up, halved
+crouching); anything but waiting makes it, each step; Acts.NOISE_BAND.
+Low: the enemy turns to where it heard you. Medium: it walks there and
+stays, facing it. Loud: it spots you. Walls and closed doors stop sound.
+Dotted rings while crouching; the shut eyes now only while crouching.
+PLACEHOLDER: bands 30 px; crouching halves noise; waiting is silent;
+attacks no louder than walking; loud = spotted (there's no ALERTED yet);
+after looking it stays there; pillars, shrubs and low walls don't stop
+sound; item noise: claymore, greatspear 30; greatbow 20; longsword,
+kite shield, pike, quarterstaff, crossbow 15; staff, bow 5; no armour yet.
 
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).

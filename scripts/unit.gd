@@ -29,6 +29,8 @@ var burns := {}  # Acts.BURNS kind -> steps left
 var calm := 0  # steps since it was last hit (its poise comes back)
 var last := ""  # its last attack
 var aware := false  # an enemy that has seen the hero (it acts once it has)
+var heard := Vector2.INF  # where an enemy last heard the hero (INF: never)
+var inspect := false  # going to look where it heard him
 var crouch := false  # CROUCH: low (slower walking; hidden behind low walls)
 
 

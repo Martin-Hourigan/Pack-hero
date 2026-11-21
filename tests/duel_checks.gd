@@ -417,6 +417,13 @@ func _rooms() -> void:
 		_still_foe(f, 400)
 	var a2: Rect2 = m["areas"][1]
 	check(not d.can_see(a2.get_center()), "a closed door hides what's past it")
+	var ear: Unit = d.foes[2]
+	var ear_at := ear.pos
+	ear.pos = Vector2(430, 100)
+	d.hero.pos = Vector2(340, 100)
+	d._hear(ear, 200.0)
+	check(ear.heard == Vector2.INF and not ear.aware, "a closed door stops sound")
+	ear.pos = ear_at
 	# Walking into a door opens it (a step), and on through.
 	d.hero.pos = Vector2(330, 100)
 	var to := Vector2(a2.position.x + 30, 100)
@@ -547,6 +554,39 @@ func _hiding() -> void:
 	d.hero.pos = Vector2(96, 100)
 	d._look()
 	check(d.sees(e), "touching the shrub: seen")
+	# Sound.
+	check(d.noise() == 30.0, "noise: the longsword and kite shield added up", str(d.noise()))
+	d.toggle_crouch()
+	check(d.noise() == 15.0, "crouching: half")
+	d.toggle_crouch()
+	check(Duel.heard(40, 5) == "medium" and Duel.heard(40, 15) == "low" and Duel.heard(40, 45) == "" and Duel.heard(100, 30) == "loud",
+		"40 noise: 10 px medium, then 30 low; past 60, loud in the middle")
+	e.pos = Vector2(250, 100)
+	e.ang = 0.0
+	e.aware = false
+	d.hero.pos = Vector2(230, 30)
+	d._hear(e, 30.0)
+	check(e.heard == Vector2.INF and not e.aware, "out of earshot: nothing")
+	d._hear(e, 100.0)
+	check(e.heard != Vector2.INF and not e.inspect and not e.aware, "low: it turns to it")
+	d._hear(e, 110.0)
+	check(e.inspect and not e.aware, "medium: it goes to look")
+	d.hero.pos = Vector2(40, 100)  # gone, out of its sight
+	var was := e.pos.distance_to(e.heard)
+	for i in 4:
+		_still(d, 1)
+		d.step()
+	check(e.pos.distance_to(e.heard) < was - 4.0 and absf(angle_difference(e.ang, (e.heard - e.pos).angle())) < 0.2,
+		"and walks there, facing it", str(e.pos))
+	check(not e.aware, "(not having spotted him)")
+	d.hero.pos = Vector2(230, 30)
+	e.pos = Vector2(250, 100)
+	d._hear(e, 150.0)
+	check(e.aware, "loud: it spots him")
+	e.aware = false
+	e.heard = Vector2.INF
+	e.inspect = false
+	e.cur = {}
 	# Turning.
 	e.pos = Vector2(250, 100)
 	e.ang = 0.0

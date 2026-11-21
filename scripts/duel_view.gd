@@ -46,6 +46,7 @@ func _draw() -> void:
 	_foe_bars(d)
 	_hidden(d)
 	_cones(d)
+	_noise(d)
 	_shots(d)
 	_reticles(d)
 	for s in d.sparks:
@@ -139,8 +140,11 @@ func _foe_bars(d: Duel) -> void:
 			draw_rect(Rect2(at, Vector2(round(10.0 * f.hp / f.max_hp), 1)), Pal.DIM)
 
 
-## HIDDEN: a shut eye over each enemy (seen) the hero is hidden from.
+## HIDDEN (crouching): a shut eye over each enemy (seen) the hero is
+## hidden from.
 func _hidden(d: Duel) -> void:
+	if not d.hero.crouch:
+		return
 	for f in d.foes:
 		if d.hidden_from(f) and d.sees(f):
 			var at := _px(f.pos + Vector2(-2, -Duel._radius(f) - 6))
@@ -159,6 +163,25 @@ func _cones(d: Duel) -> void:
 			for s in [-1, 1]:
 				var w := Vector2.from_angle(f.ang + s * deg_to_rad(Acts.CONE / 2.0))
 				_dots(f.pos + w * (r + 2.0), f.pos + w * (r + 18.0), Pal.DIM)
+
+
+## SOUND (crouching): how far the hero's noise goes, dotted rings where
+## it's low, medium and loud from.
+func _noise(d: Duel) -> void:
+	if not d.hero.crouch:
+		return
+	var h := d.hero
+	var p := h.pos
+	if not h.was.is_empty() and main.u < 1.0:
+		p = Vector2(h.was["pos"]).lerp(h.pos, main.u)
+	var n := d.noise()
+	for i in 3:
+		var r := n - i * Acts.NOISE_BAND
+		if r <= Duel._radius(h):
+			break
+		var dots := maxi(int(TAU * r / 4.0), 8)
+		for j in dots:
+			draw_rect(Rect2(_px(p + Vector2.from_angle(TAU * j / dots) * r).round(), Vector2.ONE), Pal.DIM.darkened(0.3 * (2 - i)))
 
 
 ## Every enemy's swing still to come: the ground each hitting step sweeps

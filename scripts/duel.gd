@@ -70,6 +70,7 @@ enum {OPEN, WALL, PILLAR, DOOR, LOW, SHRUB}
 const SIGHT_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR) | (1 << SHRUB)
 const WALK_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR) | (1 << LOW)
 const SHOT_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR)
+const SOUND_STOPS := (1 << WALL) | (1 << DOOR)
 const SIDES := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 var map := {}  # Acts.MAP (or a room like KNIGHT_ROOM: one area)
@@ -605,6 +606,24 @@ func _choose_archer(u: Unit) -> void:
 		start_attack(String(f["attacks"][0]), u)
 
 
+## An enemy that hasn't spotted the hero waits; having heard him, it turns
+## to where it heard him, and if it's going to look, walks there.
+func _idle(u: Unit) -> void:
+	if u.heard == Vector2.INF:
+		u.cur = _act("wait", [{"ph": "wait"}])
+		return
+	var there := u.pos.distance_to(u.heard) <= 2.0
+	if u.inspect and not there:
+		var way := route(u, u.heard)
+		if not way.is_empty():
+			var a := (Vector2(way[0]) - u.pos).angle()
+			var go := minf(float(foe_data(u)["walk"]), u.pos.distance_to(way[0]))
+			u.cur = _act("walk", [{"ph": "move", "to": u.pos + Vector2.from_angle(a) * go, "face": a}])
+			return
+	u.inspect = false
+	u.cur = _act("wait", [{"ph": "wait", "face": u.ang if there else (u.heard - u.pos).angle()}])
+
+
 ## u walks a step toward the hero, at most `go` px (away, if negative),
 ## facing him.
 ## Out of a straight line from him, it goes the way round instead.
@@ -653,6 +672,7 @@ func step() -> void:
 	for u in units:
 		u.was = {"pos": u.pos, "ang": u.ang, "pose": u.pose}
 	var foe_starts := false
+	var loud := noise() if not hero.idle() and String(current(hero).get("ph", "")) != "wait" else 0.0
 	for u in foes:
 		if not u.alive():
 			continue
@@ -661,11 +681,13 @@ func step() -> void:
 			u.taken = 0
 		if not u.aware and spots(u):
 			u.aware = true
+		if not u.aware:
+			_hear(u, loud)
 		if u.idle():
 			if u.aware:
 				_choose(u)
 			else:
-				u.cur = _act("wait", [{"ph": "wait"}])
+				_idle(u)
 		if int(u.cur.get("b", 1)) == 0 and _threat(u.cur):
 			foe_starts = true
 	var walking := String(hero.cur.get("k", "")) == "move"
@@ -1003,6 +1025,45 @@ func los(a: Vector2, b: Vector2, stops := SIGHT_STOPS, skip := []) -> bool:
 		if q != sa and (stops >> solid[q.y * fog_size.x + q.x]) & 1 and not skip.any(func(r): return Rect2(r).has_point(pt)):
 			return false
 	return true
+
+
+## SOUND: how loud the hero is (what he holds added up; halved crouching).
+func noise() -> float:
+	var n := 0.0
+	var counted := []
+	for h in ["left", "right"]:
+		var k := held(owner(h))
+		if not k in counted:
+			counted.append(k)
+			n += float(Acts.ITEMS[k].get("noise", 0))
+	return n / 2.0 if hero.crouch else n
+
+
+## How noise n sounds d px away: "loud", "medium", "low" or "" (not heard).
+static func heard(n: float, d: float) -> String:
+	if d > n:
+		return ""
+	if d > n - Acts.NOISE_BAND:
+		return "low"
+	if d > n - 2.0 * Acts.NOISE_BAND:
+		return "medium"
+	return "loud"
+
+
+## Enemy u hearing the hero make noise n: low, it turns to him; medium, it
+## goes to look; loud, it spots him. Not through walls or closed doors.
+func _hear(u: Unit, n: float) -> void:
+	var how := heard(n, u.pos.distance_to(hero.pos))
+	if how == "" or not los(u.pos, hero.pos, SOUND_STOPS):
+		return
+	if how == "loud":
+		u.aware = true
+		return
+	u.heard = hero.pos
+	if how == "medium":
+		u.inspect = true
+	if String(u.cur.get("k", "")) == "wait":
+		u.cur = {}  # it turns now
 
 
 ## HIDDEN: the hero is hidden from an enemy that hasn't spotted him yet.
