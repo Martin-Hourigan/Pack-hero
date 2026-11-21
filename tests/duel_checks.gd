@@ -446,6 +446,7 @@ func _rooms() -> void:
 			["seen and near", Vector2(0, -(Acts.AGGRO - 20.0)), true]]:
 		e.pos = behind + k[1]
 		e.aware = false
+		e.ang = (d.hero.pos - e.pos).angle()
 		e.cur = {}
 		_still(d, 1)
 		d.step()
@@ -459,6 +460,7 @@ func _rooms() -> void:
 		_still(d, 1)
 		d.step()
 	check(e.pos.distance_to(d.hero.pos) < far - 20.0, "an enemy comes round a pillar to you", str(e.pos))
+	_hiding()
 	# What's been seen is remembered after dying; the doors close again.
 	var seen_before := 0
 	for b in d.memory[0]:
@@ -493,6 +495,47 @@ func _rooms() -> void:
 	_still(d, 1)
 	d.step()
 	check(d.result == "win", "the knight dead: won")
+
+
+## Hiding: the cone, low walls, shrubs; enemies turn so far a step.
+func _hiding() -> void:
+	var m := {"area": Rect2(0, 0, 300, 200), "start": Vector2(40, 100),
+		"shrubs": [Rect2(100, 80, 32, 40)], "low walls": [Rect2(200, 60, 8, 80)],
+		"foes": [{"k": "soldier", "at": Vector2(250, 100), "a": PI}]}
+	var d := Duel.new(1, Acts.HANDS, m)
+	var e: Unit = d.foes[0]
+	d.hero.pos = Vector2(170, 100)
+	check(d.spots(e), "seen over a low wall, away from it")
+	e.ang = 0.0
+	check(not d.spots(e), "behind an enemy, outside its cone: not seen")
+	e.ang = PI
+	d.hero.pos = Vector2(192, 100)
+	check(not d.spots(e), "up against a low wall: hidden")
+	check(not d.fits(Duel._radius(d.hero), Vector2(204, 100)) and d.open_at(Vector2(204, 100)), "a low wall: no walking through, shots go over")
+	check(d.fits(Duel._radius(d.hero), Vector2(116, 100)) and d.open_at(Vector2(116, 100)), "a shrub: walking and shots go through")
+	# In a shrub.
+	d.hero.pos = Vector2(116, 100)
+	e.pos = Vector2(160, 100)
+	check(not d.spots(e), "in a shrub: hidden")
+	e.pos = Vector2(136, 100)
+	check(d.spots(e), "but not from one touching it")
+	d._look()
+	check(d.can_see(Vector2(145, 100)) and not d.can_see(Vector2(180, 100)), "from in a shrub you see only so far")
+	# An enemy in a shrub.
+	e.pos = Vector2(116, 100)
+	d.hero.pos = Vector2(60, 100)
+	d._look()
+	check(not d.sees(e) and d.enemy_at(e.pos) == null, "an enemy in a shrub: hidden, can't be picked")
+	d.hero.pos = Vector2(96, 100)
+	d._look()
+	check(d.sees(e), "touching the shrub: seen")
+	# Turning.
+	e.pos = Vector2(250, 100)
+	e.ang = 0.0
+	e.cur = d._act("walk", [{"ph": "move", "to": e.pos, "face": PI}])
+	_still(d, 1)
+	d.step()
+	check(is_equal_approx(absf(angle_difference(0.0, e.ang)), deg_to_rad(float(Acts.SOLDIER["turn"]))), "an enemy turns only so far a step", str(rad_to_deg(e.ang)))
 
 
 ## Whole fights, the hero pressing light attacks: they end.

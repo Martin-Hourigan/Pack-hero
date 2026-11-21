@@ -65,7 +65,11 @@ var wiggle := {}  # HUD thing -> seconds left (a stamina bar that's too low)
 const KNIGHT_ROOM := {"area": Acts.ARENA, "start": Vector2(110, 92),
 	"foes": [{"k": "knight", "at": Vector2(270, 92), "a": PI, "aware": true}]}
 ## What a fog square is.
-enum {OPEN, WALL, PILLAR, DOOR}
+enum {OPEN, WALL, PILLAR, DOOR, LOW, SHRUB}
+## What stops sight, a body, a shot (bits of the kinds of square).
+const SIGHT_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR) | (1 << SHRUB)
+const WALK_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR) | (1 << LOW)
+const SHOT_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR)
 const SIDES := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 var map := {}  # Acts.MAP (or a room like KNIGHT_ROOM: one area)
@@ -73,13 +77,15 @@ var room_i := 0  # (one map: always 0; memory's key)
 var area := Rect2()  # the box round it all (and a square of wall round that)
 var floors: Array = []  # Rect2s: the areas and halls
 var pillars: Array = []  # Rect2s
+var shrubs: Array = []  # Rect2s
+var low_walls: Array = []  # Rect2s
 var doors: Array = []  # {rect, open, boss, shut (the boss door, shut behind him)}
 var boss_area := Rect2()  # (none: empty)
 var memory := {}  # room_i -> PackedByteArray: the squares (Acts.FOG) seen
 var sight := PackedByteArray()  # the squares seen now
 var fog_size := Vector2i.ZERO  # squares across, down
-var solid := PackedByteArray()  # each square: OPEN, WALL, PILLAR, DOOR (closed)
-var touches := PackedByteArray()  # each square: which sides (bits) are next to a solid one
+var solid := PackedByteArray()  # each square: OPEN, WALL, PILLAR, DOOR (closed), LOW, SHRUB
+var touches := PackedByteArray()  # each square: which sides (bits) are next to one sight stops at
 var paths := AStarGrid2D.new()  # the squares a body's middle can go (room to spare)
 
 
@@ -102,6 +108,8 @@ func _init(seed_ := 0, gear_ := Acts.HANDS, map_: Dictionary = KNIGHT_ROOM, firs
 		area = area.merge(fl)
 	area = area.grow(Acts.FOG)
 	pillars = map.get("pillars", [])
+	shrubs = map.get("shrubs", [])
+	low_walls = map.get("low walls", [])
 	for dr in map.get("doors", []):
 		doors.append({"rect": dr["rect"], "open": false, "boss": dr.get("boss", false), "shut": false})
 	if map.has("boss"):
@@ -264,7 +272,7 @@ func auto_aims(k: String) -> bool:
 ## The enemy whose body is at p, give or take `slack` px (null = none).
 func enemy_at(p: Vector2, slack := 4.0) -> Unit:
 	for u in units:
-		if u.side != "enemy" or not u.alive() or not can_see(u.pos):
+		if u.side != "enemy" or not u.alive() or not sees(u):
 			continue
 		for c in u.body():
 			if p.distance_to(c[0]) <= float(c[1]) + slack:
@@ -584,7 +592,7 @@ func _choose_archer(u: Unit) -> void:
 	var d := u.pos.distance_to(hero.pos)
 	if d < float(f["near"]):
 		_walk_to(u, -float(f["walk"]))
-	elif d > float(f["far"]) or not los(u.pos, hero.pos):
+	elif d > float(f["far"]) or not los(u.pos, hero.pos, SHOT_STOPS):
 		_walk_to(u, maxf(d - float(f["far"]) + 1.0, float(f["walk"])))
 	else:
 		start_attack(String(f["attacks"][0]), u)
@@ -644,7 +652,7 @@ func step() -> void:
 		u.calm += 1
 		if u.calm >= int(foe_data(u)["calm"]):
 			u.taken = 0
-		if not u.aware and u.pos.distance_to(hero.pos) <= Acts.AGGRO and los(u.pos, hero.pos):
+		if not u.aware and spots(u):
 			u.aware = true
 		if u.idle():
 			if u.aware:
@@ -719,7 +727,7 @@ func step() -> void:
 	if walking and foe_starts and String(hero.cur.get("k", "")) == "move":
 		hero.cur = {}
 	_look()
-	if target != null and (not target.alive() or not can_see(target.pos)):
+	if target != null and (not target.alive() or not sees(target)):
 		target = null
 	if hero.hp <= 0:
 		result = "lose"
@@ -748,11 +756,9 @@ func _do(u: Unit) -> void:
 		return
 	var st := current(u)
 	if st.has("face"):
-		u.ang = float(st["face"])
+		u.ang = float(st["face"]) if u == hero else turned(u, u.ang, float(st["face"]))
 	if st.get("track", false) and u != hero:
-		var aim := (hero.pos - u.pos).angle()
-		var most := deg_to_rad(float(foe_data(u)["turn"]))
-		u.ang += clampf(angle_difference(u.ang, aim), -most, most)
+		u.ang = turned(u, u.ang, (hero.pos - u.pos).angle())
 	if st.has("to"):
 		_walk(u, st["to"])
 	if float(st.get("fwd", 0.0)) > 0.0:
@@ -760,6 +766,12 @@ func _do(u: Unit) -> void:
 	if u == hero and target != null and not st.has("clip"):
 		u.ang = (target.pos - u.pos).angle()  # walking, waiting...: facing it
 	u.pose = pose_for(u, st, u.cur)
+
+
+## Enemy u, facing `from`, turned toward `to` as far as it turns in a step.
+func turned(u: Unit, from: float, to: float) -> float:
+	var most := deg_to_rad(float(foe_data(u)["turn"]))
+	return from + clampf(angle_difference(from, to), -most, most)
 
 
 ## Moves u toward `to`, a pixel at a time, sliding along a wall it meets
@@ -784,8 +796,8 @@ func _walk(u: Unit, to: Vector2) -> void:
 		u.pos = p
 
 
-## Whether u's body fits at p: on the floor, clear of the pillars and
-## closed doors.
+## Whether u's body fits at p: on the floor, clear of the pillars, low
+## walls and closed doors.
 func _in_arena(u: Unit, p: Vector2) -> bool:
 	return fits(_radius(u), p)
 
@@ -796,7 +808,7 @@ func fits(r: float, p: Vector2) -> bool:
 	for i in 8:
 		if not on_floor(p + Vector2.from_angle(i * PI / 4.0) * r):
 			return false
-	for pl in pillars:
+	for pl in pillars + low_walls:
 		if Rect2(pl).grow(r).has_point(p):
 			return false
 	for dr in doors:
@@ -864,6 +876,12 @@ func _build() -> void:
 				for pl in pillars:
 					if Rect2(pl).has_point(c):
 						t = PILLAR
+				for lw in low_walls:
+					if Rect2(lw).has_point(c):
+						t = LOW
+				for sh in shrubs:
+					if Rect2(sh).has_point(c):
+						t = SHRUB
 				for dr in doors:
 					if not dr["open"] and Rect2(dr["rect"]).has_point(c):
 						t = DOOR
@@ -874,7 +892,7 @@ func _build() -> void:
 			var bits := 0
 			for b in 4:
 				var q: Vector2i = Vector2i(x, y) + SIDES[b]
-				if q.x >= 0 and q.y >= 0 and q.x < fog_size.x and q.y < fog_size.y and solid[q.y * fog_size.x + q.x] != OPEN:
+				if q.x >= 0 and q.y >= 0 and q.x < fog_size.x and q.y < fog_size.y and (SIGHT_STOPS >> solid[q.y * fog_size.x + q.x]) & 1:
 					bits |= 1 << b
 			touches[y * fog_size.x + x] = bits
 	paths = AStarGrid2D.new()
@@ -888,7 +906,7 @@ func _build() -> void:
 	for y in fog_size.y:
 		for x in fog_size.x:
 			var t := solid[y * fog_size.x + x]
-			if t == OPEN or (t == DOOR and not _door_at(x, y).get("shut", true)):
+			if t == OPEN or t == SHRUB or (t == DOOR and not _door_at(x, y).get("shut", true)):
 				continue
 			var edge := t != WALL
 			for e in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
@@ -920,7 +938,7 @@ func square(p: Vector2) -> Vector2i:
 ## of its middle or its sides, with a little to spare).
 func clear(u: Unit, a: Vector2, b: Vector2) -> bool:
 	var side := (b - a).orthogonal().normalized() * (_radius(u) + 2.0)
-	return los(a, b) and los(a + side, b + side) and los(a - side, b - side)
+	return los(a, b, WALK_STOPS) and los(a + side, b + side, WALK_STOPS) and los(a - side, b - side, WALK_STOPS)
 
 
 ## The way u goes to p: corner points ending at p ([] = there's none). A
@@ -966,38 +984,95 @@ func _free(c: Vector2i) -> Vector2i:
 
 # ---------------------------------------------------------------- sight
 
-## Whether a straight line from a to b is clear of walls, pillars and
-## closed doors (the squares it goes through, but a's own).
-func los(a: Vector2, b: Vector2) -> bool:
+## Whether a straight line from a to b is clear of what `stops` (bits of
+## the kinds of square; the squares it goes through, but a's own, and any
+## in the Rect2s `skip`).
+func los(a: Vector2, b: Vector2, stops := SIGHT_STOPS, skip := []) -> bool:
 	var n := ceili(a.distance_to(b) / 2.0)
 	var sa := square(a)
 	for i in range(1, n + 1):
-		var q := square(a.lerp(b, float(i) / n))
-		if q != sa and solid[q.y * fog_size.x + q.x] != OPEN:
+		var pt := a.lerp(b, float(i) / n)
+		var q := square(pt)
+		if q != sa and (stops >> solid[q.y * fog_size.x + q.x]) & 1 and not skip.any(func(r): return Rect2(r).has_point(pt)):
 			return false
 	return true
 
 
-## Whether the hero can see p now.
 ## HIDDEN: the hero is hidden from an enemy that hasn't spotted him yet.
 func hidden_from(u: Unit) -> bool:
 	return u.side == "enemy" and u.alive() and not u.aware
 
 
+## Whether enemy u spots the hero: within aggro range, in the cone ahead
+## of it, and it can see him.
+func spots(u: Unit) -> bool:
+	var v := hero.pos - u.pos
+	if v.length() > Acts.AGGRO or rad_to_deg(absf(angle_difference(u.ang, v.angle()))) > Acts.CONE / 2.0:
+		return false
+	return sees_body(u, hero)
+
+
+## Whether the hero can see enemy u now.
+func sees(u: Unit) -> bool:
+	return can_see(u.pos) and sees_body(hero, u)
+
+
+## Whether a can see b: nothing in the way that hides (walls, pillars,
+## closed doors, shrubs); b not in a shrub, unless a's in it too or
+## touching it; b not up against a low wall between them. From in a
+## shrub, only so far.
+func sees_body(a: Unit, b: Unit) -> bool:
+	var mine := shrub_at(a.pos)
+	if mine.has_area() and a.pos.distance_to(b.pos) > Acts.SHRUB_SIGHT:
+		return false
+	var skip := [mine] if mine.has_area() else []
+	var theirs := shrub_at(b.pos)
+	if theirs.has_area() and theirs != mine:
+		if not theirs.grow(_radius(a) + 1.0).has_point(a.pos):
+			return false
+		skip.append(theirs)
+	for lw in low_walls:
+		var r: Rect2 = lw
+		if r.grow(_radius(b) + Acts.LOW_HIDE).has_point(b.pos) and _crosses(a.pos, b.pos, r):
+			return false
+	return los(a.pos, b.pos, SIGHT_STOPS, skip)
+
+
+## The shrub p is in (an empty Rect2 if none).
+func shrub_at(p: Vector2) -> Rect2:
+	for sh in shrubs:
+		if Rect2(sh).has_point(p):
+			return sh
+	return Rect2()
+
+
+## Whether a straight line from a to b goes through r.
+static func _crosses(a: Vector2, b: Vector2, r: Rect2) -> bool:
+	var n := ceili(a.distance_to(b))
+	for i in n + 1:
+		if r.has_point(a.lerp(b, float(i) / maxi(n, 1))):
+			return true
+	return false
+
+
+## Whether the hero can see p now.
 func can_see(p: Vector2) -> bool:
 	var q := square(p)
 	return sight[q.y * fog_size.x + q.x] == 1
 
 
 ## The squares the hero sees now (a line from him to every edge square,
-## up to the first solid one, which is seen too, as is anything solid
-## next to a square seen); they're remembered.
+## up to the first one sight stops at, which is seen too, as is anything
+## sight stops at next to a square seen; a shrub seen is seen whole); from
+## in a shrub, only so far (and out through it). They're remembered.
 func _look() -> void:
 	var n := fog_size.x * fog_size.y
 	sight.resize(n)
 	sight.fill(0)
 	var seen: PackedByteArray = memory[room_i]
 	var h := square(hero.pos)
+	var mine := shrub_at(hero.pos)
+	var far := Acts.SHRUB_SIGHT / Acts.FOG if mine.has_area() else INF
 	var ends: Array = []
 	for x in fog_size.x:
 		ends.append(Vector2i(x, 0))
@@ -1016,9 +1091,12 @@ func _look() -> void:
 		var err := dx + dy
 		while true:
 			var i := y * fog_size.x + x
+			if Vector2(x - h.x, y - h.y).length() > far:
+				break
 			sight[i] = 1
 			seen[i] = 1
-			if solid[i] != OPEN and Vector2i(x, y) != h:
+			if (SIGHT_STOPS >> solid[i]) & 1 and Vector2i(x, y) != h \
+					and not mine.has_point(area.position + (Vector2(x, y) + Vector2(0.5, 0.5)) * Acts.FOG):
 				break
 			if touches[i] != 0:
 				for b in 4:
@@ -1035,6 +1113,22 @@ func _look() -> void:
 			if e2 <= dx:
 				err += dx
 				y += sy
+	for sh in shrubs:
+		var r: Rect2 = sh
+		var a := square(r.position)
+		var b := square(r.end - Vector2.ONE)
+		var cells: Array = []
+		var any := false
+		for y in range(a.y, b.y + 1):
+			for x in range(a.x, b.x + 1):
+				var i := y * fog_size.x + x
+				if solid[i] == SHRUB:
+					cells.append(i)
+					any = any or sight[i] == 1
+		if any:
+			for i in cells:
+				sight[i] = 1
+				seen[i] = 1
 	memory[room_i] = seen
 
 
@@ -1204,7 +1298,7 @@ func trace(u: Unit, a := {}) -> Array:
 		var a0 := ang
 		var p0 := p
 		if st.has("face"):
-			ang = float(st["face"])
+			ang = float(st["face"]) if u == hero else turned(u, ang, float(st["face"]))
 		if st.has("to"):
 			p = st["to"]
 		p += Vector2.from_angle(ang) * float(st.get("fwd", 0.0))

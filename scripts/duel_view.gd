@@ -1,7 +1,7 @@
 class_name DuelView
 extends Node2D
 ## Draws the world, moved by the camera (main.cam; main sets position):
-## the map (floor, pillars, doors, walls), the fog (never seen: blank; seen
+## the map (floor, pillars, low walls, shrubs, doors, walls), the fog (never seen: blank; seen
 ## before: greyed), the enemies' coming swings (a ghost of the blade at
 ## each step still to come, the ground its hitting steps sweep over, and
 ## the steps left on each), what the hero's tool would do where you aim,
@@ -13,6 +13,12 @@ var main = null
 
 ## The floor in sight: just lighter than the black it greys back to.
 const FLOOR := Color("#161514")
+## Shrubs (muted green, lighter leaves) and low walls (a lighter block than
+## a pillar). PLACEHOLDER.
+const SHRUB := Color("#2e3626")
+const SHRUB_LEAF := Color("#4c5a3c")
+const LOW_WALL := Color("#3a3732")
+const LOW_EDGE := Color("#8a8478")
 
 var _fog_tex: ImageTexture
 var _fog_key := []  # what the fog texture was made from
@@ -33,7 +39,7 @@ func _draw() -> void:
 	_walls(d)
 	_ghosts(d)
 	_preview(d)
-	var order: Array = d.units.filter(func(u): return u.alive() and (u == d.hero or d.can_see(u.pos)))
+	var order: Array = d.units.filter(func(u): return u.alive() and (u == d.hero or d.sees(u)))
 	order.sort_custom(func(a, b): return a.pos.y < b.pos.y)
 	for u in order:
 		_unit(d, u)
@@ -48,8 +54,8 @@ func _draw() -> void:
 	_guard(d)
 
 
-## The floor's dots, the pillars and the closed doors (the fog goes over
-## them). The boss door is drawn in a dull red.
+## The floor's dots, the pillars, low walls, shrubs and the closed doors
+## (the fog goes over them). The boss door is drawn in a dull red.
 func _room(d: Duel) -> void:
 	for fl in d.floors:
 		var a: Rect2 = fl
@@ -60,6 +66,15 @@ func _room(d: Duel) -> void:
 	for pl in d.pillars:
 		draw_rect(pl, Pal.DARK)
 		draw_rect(Rect2(pl).grow(-0.5), Pal.DIM, false)
+	for lw in d.low_walls:
+		draw_rect(lw, LOW_WALL)
+		draw_rect(Rect2(lw).grow(-0.5), LOW_EDGE, false)
+	for sh in d.shrubs:
+		var r: Rect2 = sh
+		draw_rect(r, SHRUB)
+		for x in range(int(r.position.x) + 2, int(r.end.x) - 1, 4):
+			for y in range(int(r.position.y) + 2, int(r.end.y) - 1, 4):
+				draw_rect(Rect2(x + ((y / 4) % 2) * 2, y, 1, 1), SHRUB_LEAF)
 	for dr in d.doors:
 		if dr["open"]:
 			continue
@@ -117,7 +132,7 @@ func _wall_col(fog: int) -> Color:
 ## A small health bar over the smaller enemies (seen), once hurt.
 func _foe_bars(d: Duel) -> void:
 	for f in d.foes:
-		if f != d.knight and f.alive() and f.hp < f.max_hp and d.can_see(f.pos):
+		if f != d.knight and f.alive() and f.hp < f.max_hp and d.sees(f):
 			var at := _px(f.pos + Vector2(-5, -11))
 			draw_rect(Rect2(at, Vector2(10, 1)), Pal.DARK)
 			draw_rect(Rect2(at, Vector2(round(10.0 * f.hp / f.max_hp), 1)), Pal.DIM)
@@ -126,7 +141,7 @@ func _foe_bars(d: Duel) -> void:
 ## HIDDEN: a shut eye over each enemy (seen) the hero is hidden from.
 func _hidden(d: Duel) -> void:
 	for f in d.foes:
-		if d.hidden_from(f) and d.can_see(f.pos):
+		if d.hidden_from(f) and d.sees(f):
 			var at := _px(f.pos + Vector2(-2, -Duel._radius(f) - 6))
 			draw_rect(Rect2(at, Vector2(1, 1)), Pal.DIM)
 			draw_rect(Rect2(at + Vector2(4, 0), Vector2(1, 1)), Pal.DIM)
@@ -138,7 +153,7 @@ func _hidden(d: Duel) -> void:
 ## each hitting step the steps left.
 func _ghosts(d: Duel) -> void:
 	for k in d.foes:
-		if k.alive() and d.can_see(k.pos):
+		if k.alive() and d.sees(k):
 			_ghost(d, k)
 
 
@@ -302,7 +317,7 @@ func _shot_path(d: Duel, k: String, ang: float, wind: int) -> void:
 	var col := Pal.INK.darkened(0.45)
 	var k_at: Array = []
 	for e in d.foes:
-		if e.alive() and d.can_see(e.pos):
+		if e.alive() and d.sees(e):
 			k_at.append_array(e.body())
 	var left := float(sp["range"])
 	for i in ceili(left / float(sp["speed"])):

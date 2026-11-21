@@ -73,7 +73,10 @@ const ARENA := Rect2(12, 12, 360, 158)
 ## the boss door shuts behind him once he's in the boss area (areas[boss])
 ## and stays shut while the knight lives. starts: where the hero begins in
 ## each area (the run starts in the first). pillars: Rect2s that block
-## walking, shots and sight. foes: {k (Acts.FOES), at, a (facing; left if
+## walking, shots and sight. shrubs: Rect2s you can walk through that hide
+## what's in them (shots go through). low walls: Rect2s that block walking;
+## you can see and shoot over them, but they hide whoever's up against
+## the far side. foes: {k (Acts.FOES), at, a (facing; left if
 ## not said)}. All PLACEHOLDER.
 const MAP := {
 	"areas": [Rect2(0, 0, 360, 200), Rect2(420, 0, 420, 260), Rect2(400, 320, 460, 320), Rect2(0, 380, 360, 200)],
@@ -83,6 +86,8 @@ const MAP := {
 	"boss": 3,
 	"starts": [Vector2(24, 100), Vector2(444, 100), Vector2(630, 344), Vector2(340, 480)],
 	"pillars": [Rect2(600, 100, 40, 60), Rect2(520, 460, 36, 36), Rect2(700, 380, 36, 80)],
+	"shrubs": [Rect2(140, 40, 32, 32), Rect2(500, 180, 32, 32), Rect2(460, 560, 32, 32)],
+	"low walls": [Rect2(180, 128, 8, 40), Rect2(680, 60, 8, 40), Rect2(580, 360, 8, 40), Rect2(760, 500, 40, 8)],
 	"foes": [{"k": "soldier", "at": Vector2(250, 70)}, {"k": "soldier", "at": Vector2(270, 140)},
 		{"k": "soldier", "at": Vector2(720, 80)}, {"k": "spearman", "at": Vector2(740, 200)},
 		{"k": "archer", "at": Vector2(810, 140)},
@@ -93,6 +98,14 @@ const MAP := {
 ## An enemy comes for the hero once it sees him within this (px; or once
 ## hit). PLACEHOLDER.
 const AGGRO := 100.0
+## An enemy sees only within this cone ahead of it (degrees across).
+## PLACEHOLDER.
+const CONE := 120.0
+## From in a shrub you see only this far (px). PLACEHOLDER.
+const SHRUB_SIGHT := 40.0
+## Within this of a low wall (px, past the body), whoever's on the far
+## side can't see you. PLACEHOLDER.
+const LOW_HIDE := 8.0
 ## Line of sight is worked out in squares this many px across.
 const FOG := 4
 
@@ -280,14 +293,14 @@ const BURNS := {
 ## The enemies. ai: how it chooses (duel.gd _choose): "knight", "melee"
 ## (walk in to `reach` px, centre to centre, and attack; back off if
 ## nearer than `near`), "archer" (keep between `near` and `far` px and
-## shoot). attacks: the ones it picks from. turn: degrees a wind-up step
-## turns it toward the hero. poise / stagger / calm: as the knight's.
+## shoot). attacks: the ones it picks from. turn: degrees it turns at most
+## in a step (walking, winding up, everything). poise / stagger / calm: as the knight's.
 ## An attack's `after`: steps it waits once it's done.
 const KNIGHT := {
 	"ai": "knight", "attacks": ["sweep", "backhand", "overhead"],
 	"walk": 3.0,  # px a step
 	"reach": 40.0,  # px from him to the hero: he attacks from here
-	"turn": 25.0,  # degrees a wind-up step turns him toward the hero
+	"turn": 25.0,  # degrees he turns at most in a step
 	"overhead_cone": 30.0,  # degrees: the hero this near straight ahead
 	"overhead_near": 22.0,  # px: and further than this, he'll chop
 	"backhand_odds": 0.6,  # after a sweep

@@ -296,6 +296,29 @@ he's hidden from. It does nothing yet.
 PLACEHOLDER: hidden is per enemy (as in D&D, hidden from a creature); the
 shut eye; once spotted there's no hiding again (they never give up).
 
+SHRUBS, LOW WALLS, CONES, TURNING (2026-11-21)
+DECIDED (Martin): shrubs and low walls to hide behind or within. Arrows
+and spells pass over both. You can look out of a shrub you're in, but
+your vision range in one is much lower. Enemies have a cone of vision;
+turn speed applies to all their turning. Enemies can hide in shrubs and
+behind low walls too (none do it on purpose yet; later maybe ambushes).
+An enemy that's lost sight of you stays alerted (not built: they still
+just keep after you). Put some walls and shrubs around and see.
+BUILT: Acts.MAP shrubs and low walls. Shrubs: walk through, nobody sees
+through one; in one you see Acts.SHRUB_SIGHT px; someone in a shrub is
+seen only by someone in it or touching it. Low walls: block walking; you
+see over them; someone within Acts.LOW_HIDE px of one is hidden from
+the far side. Shots go through and over both. Enemies spot you only in
+Acts.CONE ahead of them. Each enemy's `turn` (degrees a step) now limits
+all its turning. The hero only sees and locks on to enemies he can see
+by these rules too.
+PLACEHOLDER: cone 120 degrees; shrub sight 40 px; low wall hide 8 px;
+turn speeds are the old wind-up ones (knight 25, soldier 40, spearman and
+archer 30); where the shrubs and walls are; their look (muted green,
+lighter-edged block).
+OPEN: show the start of an enemy's cone "maybe just when you're
+crouching", but there's no crouching; not built. ALERTED status: later.
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 
