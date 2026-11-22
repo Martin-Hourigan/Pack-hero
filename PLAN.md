@@ -444,6 +444,12 @@ IN THE DARK (2026-11-23), DECIDED (Martin): anyone in the dark (the
 hero too) is drawn as a light grey outline, not in colour; dim is full
 colour. BUILT: DuelView._unit. PLACEHOLDER: outline #a29d92, 1 px, filled
 #070606; enemies carry lanterns, so it's mostly the hero.
+DITHERED EDGES (2026-11-23), DECIDED (Martin): the light dithers out
+instead of hard lines, still with lit and dim areas. BUILT:
+shaders/shade.gdshader (the fog and the light; the light smoothed and
+dithered 4x4 between lit / dim / dark, on the world's pixels). Only the
+look: who's seen still goes by the square's own lit / dim / dark.
+PLACEHOLDER: smoothed over about 3 squares (12 px) each way.
 
 BOW TIMING (2026-11-23)
 DECIDED (Martin): drawing a bow takes longer, and so does the end of the

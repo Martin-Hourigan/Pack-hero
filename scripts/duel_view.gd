@@ -34,21 +34,42 @@ const DARK_LINE := Color("#a29d92")
 const DARK_FILL := Color("#070606")
 
 var _fog_tex: ImageTexture
-var _fog_key := []  # what the fog texture was made from
+var _light_tex: ImageTexture
+var _fog_key := []  # what the fog and light textures were made from
+var _ground := Node2D.new()  # the room, drawn under the shade
+var _shade := Node2D.new()  # the fog and the light, drawn under the rest
 var _edges: Array = []  # the walls' edges: [Rect2, square x, square y]
 var _edges_of: Duel = null
 
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	for c in [_ground, _shade]:
+		c.show_behind_parent = true
+		add_child(c)
+	_ground.draw.connect(func(): if _drawing(): _room(_ground, main.duel))
+	_shade.draw.connect(func(): if _drawing(): _fog(main.duel))
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://shaders/shade.gdshader")
+	m.set_shader_parameter("greyed", 0.65)
+	m.set_shader_parameter("dim_shade", DIM_SHADE)
+	m.set_shader_parameter("dark_shade", DARK_SHADE)
+	_shade.material = m
+
+
+func _process(_dt: float) -> void:
+	_ground.queue_redraw()
+	_shade.queue_redraw()
+
+
+func _drawing() -> bool:
+	return main.mode == "duel" and main.duel != null
 
 
 func _draw() -> void:
 	if main.mode != "duel" or main.duel == null:
 		return
 	var d: Duel = main.duel
-	_room(d)
-	_fog(d)
 	_walls(d)
 	_ghosts(d)
 	_preview(d)
@@ -72,65 +93,76 @@ func _draw() -> void:
 
 ## The floor's dots, the pillars, low walls, shrubs and the closed doors
 ## (the fog goes over them). The boss door is drawn in a dull red.
-func _room(d: Duel) -> void:
+func _room(c: CanvasItem, d: Duel) -> void:
 	for fl in d.floors:
 		var a: Rect2 = fl
-		draw_rect(a, FLOOR)
+		c.draw_rect(a, FLOOR)
 		for x in range(int(a.position.x) + 8, int(a.end.x), 16):
 			for y in range(int(a.position.y) + 8, int(a.end.y), 16):
-				draw_rect(Rect2(x + ((y / 16) % 2) * 8, y, 1, 1), Pal.DARK)
+				c.draw_rect(Rect2(x + ((y / 16) % 2) * 8, y, 1, 1), Pal.DARK)
 	for pl in d.pillars:
-		draw_rect(pl, Pal.DARK)
-		draw_rect(Rect2(pl).grow(-0.5), Pal.DIM, false)
+		c.draw_rect(pl, Pal.DARK)
+		c.draw_rect(Rect2(pl).grow(-0.5), Pal.DIM, false)
 	for lw in d.low_walls:
-		draw_rect(lw, LOW_WALL)
-		draw_rect(Rect2(lw).grow(-0.5), LOW_EDGE, false)
+		c.draw_rect(lw, LOW_WALL)
+		c.draw_rect(Rect2(lw).grow(-0.5), LOW_EDGE, false)
 	for sh in d.shrubs:
 		var r: Rect2 = sh
-		draw_rect(r, SHRUB)
+		c.draw_rect(r, SHRUB)
 		for x in range(int(r.position.x) + 2, int(r.end.x) - 1, 4):
 			for y in range(int(r.position.y) + 2, int(r.end.y) - 1, 4):
-				draw_rect(Rect2(x + ((y / 4) % 2) * 2, y, 1, 1), SHRUB_LEAF)
+				c.draw_rect(Rect2(x + ((y / 4) % 2) * 2, y, 1, 1), SHRUB_LEAF)
 	for dr in d.doors:
 		if dr["open"]:
 			continue
 		var r: Rect2 = dr["rect"]
-		draw_rect(r, Pal.DANGER_DIM if dr["boss"] else Pal.DARK)
-		draw_rect(r.grow(-0.5), Pal.DANGER if dr["boss"] else Pal.DIM, false)
+		c.draw_rect(r, Pal.DANGER_DIM if dr["boss"] else Pal.DARK)
+		c.draw_rect(r.grow(-0.5), Pal.DANGER if dr["boss"] else Pal.DIM, false)
 	var flick := int(main.clock * 8.0) % 2
 	for l in d.lights:
 		var at := _px(l["at"])
 		if l["k"] == "campfire":
 			for o in [Vector2(-4, 0), Vector2(4, 0), Vector2(0, -4), Vector2(0, 4), Vector2(-3, -3), Vector2(3, -3), Vector2(-3, 3), Vector2(3, 3)]:
-				draw_rect(Rect2(at + o, Vector2.ONE), Pal.DIM)
-			draw_rect(Rect2(at.x - 2, at.y, 5, 1), WOOD)
-			draw_rect(Rect2(at.x, at.y - 2, 1, 5), WOOD)
-			draw_rect(Rect2(at.x - 1, at.y - 1, 3, 2), FLAME)
-			draw_rect(Rect2(at.x - flick, at.y - 2, 1, 2), FLAME_HOT)
+				c.draw_rect(Rect2(at + o, Vector2.ONE), Pal.DIM)
+			c.draw_rect(Rect2(at.x - 2, at.y, 5, 1), WOOD)
+			c.draw_rect(Rect2(at.x, at.y - 2, 1, 5), WOOD)
+			c.draw_rect(Rect2(at.x - 1, at.y - 1, 3, 2), FLAME)
+			c.draw_rect(Rect2(at.x - flick, at.y - 2, 1, 2), FLAME_HOT)
 		else:
-			draw_rect(Rect2(at.x, at.y, 1, 3), WOOD)
-			draw_rect(Rect2(at.x - 1, at.y - 2, 3, 2), FLAME)
-			draw_rect(Rect2(at.x, at.y - 2 - flick, 1, 1), FLAME_HOT)
+			c.draw_rect(Rect2(at.x, at.y, 1, 3), WOOD)
+			c.draw_rect(Rect2(at.x - 1, at.y - 2, 3, 2), FLAME)
+			c.draw_rect(Rect2(at.x, at.y - 2 - flick, 1, 1), FLAME_HOT)
 
 
 ## Never seen: blank. Seen before but not now: greyed. In sight: darker
-## where it's dim or dark (and greyed no lighter than that).
+## where it's dim or dark, dithered at the edges (shaders/shade.gdshader).
 func _fog(d: Duel) -> void:
 	var key := [d, d.room_i, d.step_n]
 	if key != _fog_key:
 		_fog_key = key
-		var img := Image.create(d.fog_size.x, d.fog_size.y, false, Image.FORMAT_RGBA8)
-		var greyed := Color(Pal.BG, 0.65)
-		for y in d.fog_size.y:
-			for x in d.fog_size.x:
-				var f := d.fog_at(x, y)
-				var shade: float = [DARK_SHADE, DIM_SHADE, 0.0][d.light[y * d.fog_size.x + x]]
-				img.set_pixel(x, y, Color(Pal.BG, shade) if f == 2 else (Color(Pal.BG, maxf(greyed.a, shade)) if f == 1 else Pal.BG))
-		if _fog_tex == null or _fog_tex.get_size() != Vector2(img.get_size()):
-			_fog_tex = ImageTexture.create_from_image(img)
+		var n := d.fog_size
+		var fog := PackedByteArray()
+		fog.resize(n.x * n.y)
+		var lit := PackedByteArray()
+		lit.resize(n.x * n.y)
+		for y in n.y:
+			for x in n.x:
+				var i := y * n.x + x
+				fog[i] = [0, 128, 255][d.fog_at(x, y)]
+				lit[i] = [0, 128, 255][d.light[i]]
+		var fi := Image.create_from_data(n.x, n.y, false, Image.FORMAT_L8, fog)
+		var li := Image.create_from_data(n.x, n.y, false, Image.FORMAT_L8, lit)
+		if _fog_tex == null or _fog_tex.get_size() != Vector2(n):
+			_fog_tex = ImageTexture.create_from_image(fi)
+			_light_tex = ImageTexture.create_from_image(li)
 		else:
-			_fog_tex.update(img)
-	draw_texture_rect(_fog_tex, Rect2(d.area.position, Vector2(d.fog_size) * Acts.FOG), false)
+			_fog_tex.update(fi)
+			_light_tex.update(li)
+		var m: ShaderMaterial = _shade.material
+		m.set_shader_parameter("fog", _fog_tex)
+		m.set_shader_parameter("light", _light_tex)
+		m.set_shader_parameter("squares", Vector2(n))
+	_shade.draw_texture_rect(_fog_tex, Rect2(d.area.position, Vector2(d.fog_size) * Acts.FOG), false)
 
 
 ## The walls: a line along every edge between wall and floor, as seen as
