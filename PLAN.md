@@ -370,17 +370,12 @@ enemy starting an attack stops HOLD until you press again; on the phone
 where your finger is (dragging steers rather than moving the view);
 WALK TO is the default.
 
-THE VIEW LEANS TOWARD THE MOUSE (2026-11-22)
-DECIDED (Martin): the view scrolls around when the mouse moves further
-from the player.
-BUILT (PC): past main.LOOK_NEAR px from the view's middle, the view leans
-toward the mouse by LOOK_LEAN px a px, eased; kept to the map, the hero
-always on the view. The mouse over the side buttons: it stays leaning.
+THE VIEW (2026-11-22)
+Tried: the view leaning toward the mouse. Martin: "i actually hate the
+auto scroll around": taken out.
 Moved off with the right button (or a drag), the view no longer snaps
 back when you do something: it scrolls back (main.HOME_RATE, eased).
-PLACEHOLDER: the scroll back takes about a second; 40 px before it leans, 0.8 px a px (at the view's edge
-about 55 px); how fast it eases; not on the phone (dragging looks
-around there).
+PLACEHOLDER: the scroll back takes about a second.
 
 SOUND (2026-11-22)
 DECIDED (Martin): weapons and armour make noise; noise is linear, every

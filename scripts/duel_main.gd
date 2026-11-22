@@ -53,10 +53,6 @@ const NOT_IN_MENU := ["block", "two hands", "one hand"]  # the toggles do these
 const SAME_TAP := 10.0  # px: a second tap this near the aim does it
 const VIEW := Rect2(84, 0, 216, 216)  # the world's square on the screen
 const DRAG := 6.0  # px a press moves before it's a drag (to look around)
-## PC: the mouse further than LOOK_NEAR px from the view's middle leans
-## the view that way, LOOK_LEAN px for each px further. PLACEHOLDER.
-const LOOK_NEAR := 40.0
-const LOOK_LEAN := 0.8
 
 var duel: Duel
 var mode := "title"  # title, gear, duel
@@ -81,7 +77,6 @@ var aimed := false  # touch: a spot has been tapped
 var held := ""  # the button being held down
 var waited_at := 0.0  # clock when a held WAIT last waited
 var step_t := STEP_T  # s the step being shown takes on screen
-var look := Vector2.ZERO  # PC: how far the view leans toward the mouse
 ## MOVE's way of walking (tap MOVE again to choose): "to" (tap a spot:
 ## walk there), "hold" (held down: walk straight toward it, a step at a
 ## time, until let go), "step" (one step toward where you tap).
@@ -206,22 +201,18 @@ func _process(dt: float) -> void:
 
 
 ## The camera: on the hero (where he's drawn), kept to the room (a room
-## smaller than the view sits in its middle), leaning toward the mouse
-## (PC), moved by `pan`, but never so far the hero's off the view.
+## smaller than the view sits in its middle), moved by `pan` (scrolling
+## back once he does something), but never so far the hero's off the view.
 func _camera(dt: float) -> void:
 	var h := duel.hero
 	var p := h.pos if h.was.is_empty() or u >= 1.0 else Vector2(h.was["pos"]).lerp(h.pos, u)
-	if not touch and VIEW.has_point(hover):
-		var off := hover - VIEW.get_center()
-		var want_look := off.normalized() * maxf(off.length() - LOOK_NEAR, 0.0) * LOOK_LEAN if off.length() > 0.0 else Vector2.ZERO
-		look = look.lerp(want_look, 1.0 - exp(-dt * 6.0))  # eased
 	if homing:
 		pan = pan.lerp(Vector2.ZERO, 1.0 - exp(-dt * HOME_RATE))
 		if pan.length() < 0.5:
 			pan = Vector2.ZERO
 			homing = false
 	var a := duel.area.grow(12)
-	var c := p + look - VIEW.size / 2.0
+	var c := p - VIEW.size / 2.0
 	for i in 2:
 		if a.size[i] <= VIEW.size[i]:
 			c[i] = a.position[i] + (a.size[i] - VIEW.size[i]) / 2.0
