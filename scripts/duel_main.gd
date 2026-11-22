@@ -35,7 +35,8 @@ extends Node2D
 ## Dev flags (after --): --duel (straight in), --seed=N, --at=x,y (the hero
 ## there), --knight=sweep / backhand / overhead (he starts it now),
 ## --foes=soldier,spearman,archer (them in the old arena instead of the
-## run), --room=N (start in the map's area N, from 0),
+## run), --room=N (start in the map's area N, from 0), --sun=morning (the map
+## outside: an Acts.SUNS key),
 ## --steps=N (play N steps first), --tool=right:light (picked) with
 ## --mouse=x,y (aimed there), --touch, --blocking (GUARD on), --lock (LOCK on), --menu=right (that hand's menu open), --gear=left,right or
 ## left,left2,right,right2 (e.g. crossbow,staff; _ for a space; the slots
@@ -162,7 +163,11 @@ func run_map() -> Dictionary:
 
 
 func begin() -> void:
-	duel = Duel.new(int(flags.get("seed", "0")), gear, run_map(), int(flags.get("room", "0")), memory)
+	var m := run_map()
+	if flags.has("sun"):
+		m = m.duplicate()
+		m["sun"] = flags["sun"]  # dev: the map outside
+	duel = Duel.new(int(flags.get("seed", "0")), gear, m, int(flags.get("room", "0")), memory)
 	mode = "duel"
 	tool = "move"
 	u = 1.0

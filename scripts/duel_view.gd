@@ -21,6 +21,13 @@ const LOW_WALL := Color("#3a3732")
 const LOW_EDGE := Color("#8a8478")
 ## Where an enemy was last seen: its puppet in one flat colour. PLACEHOLDER.
 const SKETCH := Color("#3a3732")
+## LIGHT: what's in sight and dim or dark is drawn darker (the puppets
+## aren't); torches, the campfire and the enemies' lanterns. PLACEHOLDER.
+const DIM_SHADE := 0.4
+const DARK_SHADE := 0.7
+const FLAME := Color("#e0a050")
+const FLAME_HOT := Color("#f2d08a")
+const WOOD := Color("#5a4632")
 
 var _fog_tex: ImageTexture
 var _fog_key := []  # what the fog texture was made from
@@ -86,9 +93,24 @@ func _room(d: Duel) -> void:
 		var r: Rect2 = dr["rect"]
 		draw_rect(r, Pal.DANGER_DIM if dr["boss"] else Pal.DARK)
 		draw_rect(r.grow(-0.5), Pal.DANGER if dr["boss"] else Pal.DIM, false)
+	var flick := int(main.clock * 8.0) % 2
+	for l in d.lights:
+		var at := _px(l["at"])
+		if l["k"] == "campfire":
+			for o in [Vector2(-4, 0), Vector2(4, 0), Vector2(0, -4), Vector2(0, 4), Vector2(-3, -3), Vector2(3, -3), Vector2(-3, 3), Vector2(3, 3)]:
+				draw_rect(Rect2(at + o, Vector2.ONE), Pal.DIM)
+			draw_rect(Rect2(at.x - 2, at.y, 5, 1), WOOD)
+			draw_rect(Rect2(at.x, at.y - 2, 1, 5), WOOD)
+			draw_rect(Rect2(at.x - 1, at.y - 1, 3, 2), FLAME)
+			draw_rect(Rect2(at.x - flick, at.y - 2, 1, 2), FLAME_HOT)
+		else:
+			draw_rect(Rect2(at.x, at.y, 1, 3), WOOD)
+			draw_rect(Rect2(at.x - 1, at.y - 2, 3, 2), FLAME)
+			draw_rect(Rect2(at.x, at.y - 2 - flick, 1, 1), FLAME_HOT)
 
 
-## Never seen: blank. Seen before but not now: greyed.
+## Never seen: blank. Seen before but not now: greyed. In sight: darker
+## where it's dim or dark (and greyed no lighter than that).
 func _fog(d: Duel) -> void:
 	var key := [d, d.room_i, d.step_n]
 	if key != _fog_key:
@@ -98,7 +120,8 @@ func _fog(d: Duel) -> void:
 		for y in d.fog_size.y:
 			for x in d.fog_size.x:
 				var f := d.fog_at(x, y)
-				img.set_pixel(x, y, Color(0, 0, 0, 0) if f == 2 else (greyed if f == 1 else Pal.BG))
+				var shade: float = [DARK_SHADE, DIM_SHADE, 0.0][d.light[y * d.fog_size.x + x]]
+				img.set_pixel(x, y, Color(Pal.BG, shade) if f == 2 else (Color(Pal.BG, maxf(greyed.a, shade)) if f == 1 else Pal.BG))
 		if _fog_tex == null or _fog_tex.get_size() != Vector2(img.get_size()):
 			_fog_tex = ImageTexture.create_from_image(img)
 		else:
@@ -298,6 +321,11 @@ func _unit(d: Duel, u: Unit) -> void:
 	if u.flash >= 0.5:
 		o["all"] = Color.WHITE
 	RigArt.draw(self, d.art(u), Transform2D(a, Vector2(s, s), 0.0, _px(p)), o)
+	if u.side == "enemy":
+		# Its lantern, at its side.
+		var l := _px(p + Vector2.from_angle(a + PI / 2.0) * (Duel._radius(u) + 1.5))
+		draw_rect(Rect2(l, Vector2(2, 2)), FLAME)
+		draw_rect(Rect2(l, Vector2.ONE), FLAME_HOT)
 
 
 ## LOCK: a reticle on the enemy locked on to; picking one, the mouse is a

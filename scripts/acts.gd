@@ -75,7 +75,9 @@ const ARENA := Rect2(12, 12, 360, 158)
 ## each area (the run starts in the first). pillars: Rect2s that block
 ## walking, shots and sight. shrubs: Rect2s you can walk through that hide
 ## what's in them (shots go through). low walls: Rect2s that block walking
-## (shots go over). Both: see LOW_SHADOW. foes: {k (Acts.FOES), at, a (facing; left if
+## (shots go over). Both: see LOW_SHADOW. LIGHT: dark: true for a map
+## lit only by its lights (else it's all lit); sun: an Acts.SUNS key
+## instead (outside); lights: {k (Acts.LIGHTS), at}. foes: {k (Acts.FOES), at, a (facing; left if
 ## not said)}. All PLACEHOLDER.
 const MAP := {
 	"areas": [Rect2(0, 0, 360, 200), Rect2(420, 0, 420, 260), Rect2(400, 320, 460, 320), Rect2(0, 380, 360, 200)],
@@ -87,6 +89,13 @@ const MAP := {
 	"pillars": [Rect2(600, 100, 40, 60), Rect2(520, 460, 36, 36), Rect2(700, 380, 36, 80)],
 	"shrubs": [Rect2(140, 40, 32, 32), Rect2(500, 180, 32, 32), Rect2(460, 560, 32, 32)],
 	"low walls": [Rect2(180, 128, 8, 40), Rect2(680, 60, 8, 40), Rect2(580, 360, 8, 40), Rect2(760, 500, 40, 8)],
+	"dark": true,
+	# A torch either side of each door, on the side you come to it from;
+	# a campfire in the second area.
+	"lights": [{"k": "torch", "at": Vector2(356, 74)}, {"k": "torch", "at": Vector2(356, 126)},
+		{"k": "torch", "at": Vector2(602, 256)}, {"k": "torch", "at": Vector2(654, 256)},
+		{"k": "torch", "at": Vector2(404, 454)}, {"k": "torch", "at": Vector2(404, 506)},
+		{"k": "campfire", "at": Vector2(700, 140)}],
 	"foes": [{"k": "soldier", "at": Vector2(250, 70)}, {"k": "soldier", "at": Vector2(270, 140)},
 		{"k": "soldier", "at": Vector2(720, 80)}, {"k": "spearman", "at": Vector2(740, 200)},
 		{"k": "archer", "at": Vector2(810, 140)},
@@ -114,6 +123,29 @@ const LOW_SHADOW := 8.0
 const NOISE_BAND := 30.0
 ## Line of sight is worked out in squares this many px across.
 const FOG := 4
+
+## LIGHT: each square is lit, dim or dark. A light: lit within `lit` px,
+## dim out to `dim` px; walls, pillars and closed doors throw shadows.
+## Every enemy carries a lantern. PLACEHOLDER.
+const LIGHTS := {
+	"torch": {"lit": 24.0, "dim": 56.0},
+	"campfire": {"lit": 40.0, "dim": 88.0},
+	"lantern": {"lit": 12.0, "dim": 32.0},
+}
+## Outside, the sun: all lit, but walls, pillars and closed doors throw a
+## shadow (dim) `len` px long away from where it is (`from`, degrees: 0 =
+## east, 90 = south). Overhead, no shadows (trees will, later).
+## PLACEHOLDER.
+const SUNS := {
+	"noon": {"from": 0.0, "len": 0.0},
+	"morning": {"from": 0.0, "len": 24.0},
+	"evening": {"from": 180.0, "len": 24.0},
+}
+## Someone dim is seen only within DIM_SIGHT px, dark within DARK_SIGHT
+## (lit: as far as the one looking sees). The same for everyone.
+## PLACEHOLDER.
+const DIM_SIGHT := 80.0
+const DARK_SIGHT := 40.0
 
 # ---------------------------------------------------------------- levels
 ## A won fight is a level. Every level you pick a stat; every third level,

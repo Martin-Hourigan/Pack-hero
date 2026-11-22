@@ -88,6 +88,9 @@ var memory := {}  # room_i -> PackedByteArray: the squares (Acts.FOG) seen
 var sight := PackedByteArray()  # the squares seen now
 var fog_size := Vector2i.ZERO  # squares across, down
 var solid := PackedByteArray()  # each square: OPEN, WALL, PILLAR, DOOR (closed), LOW, SHRUB
+var light := PackedByteArray()  # each square: 0 dark, 1 dim, 2 lit (now)
+var fixed_light := PackedByteArray()  # the same from the sun and the lights that stay put
+var lights: Array = []  # {k (Acts.LIGHTS), at}
 var touches := PackedByteArray()  # each square: which sides (bits) are next to one sight stops at
 var paths := AStarGrid2D.new()  # the squares a body's middle can go (room to spare)
 
@@ -113,6 +116,7 @@ func _init(seed_ := 0, gear_ := Acts.HANDS, map_: Dictionary = KNIGHT_ROOM, firs
 	pillars = map.get("pillars", [])
 	shrubs = map.get("shrubs", [])
 	low_walls = map.get("low walls", [])
+	lights = map.get("lights", [])
 	for dr in map.get("doors", []):
 		doors.append({"rect": dr["rect"], "open": false, "boss": dr.get("boss", false), "shut": false})
 	if map.has("boss"):
@@ -127,6 +131,7 @@ func _init(seed_ := 0, gear_ := Acts.HANDS, map_: Dictionary = KNIGHT_ROOM, firs
 		m.resize(fog_size.x * fog_size.y)
 		memory[room_i] = m
 	_build()
+	_light()
 	_look()
 	_sketches()
 
@@ -767,6 +772,7 @@ func step() -> void:
 	foe_started = foe_starts
 	if walking and foe_starts and String(hero.cur.get("k", "")) == "move":
 		hero.cur = {}
+	_light()
 	_look()
 	_sketches()
 	if target != null and (not target.alive() or not sees(target)):
@@ -937,6 +943,7 @@ func _build() -> void:
 				if q.x >= 0 and q.y >= 0 and q.x < fog_size.x and q.y < fog_size.y and (CROUCH_SIGHT_STOPS >> solid[q.y * fog_size.x + q.x]) & 1:
 					bits |= 1 << b
 			touches[y * fog_size.x + x] = bits
+	_fixed_light()
 	paths = AStarGrid2D.new()
 	paths.region = Rect2i(Vector2i.ZERO, fog_size)
 	paths.cell_size = Vector2(f, f)
@@ -1088,14 +1095,14 @@ func hidden_from(u: Unit) -> bool:
 ## of it, and it can see him.
 func spots(u: Unit) -> bool:
 	var v := hero.pos - u.pos
-	if v.length() > Acts.AGGRO or rad_to_deg(absf(angle_difference(u.ang, v.angle()))) > Acts.CONE / 2.0:
+	if v.length() > minf(Acts.AGGRO, seen_within(hero.pos, INF)) or rad_to_deg(absf(angle_difference(u.ang, v.angle()))) > Acts.CONE / 2.0:
 		return false
 	return sees_body(u, hero)
 
 
 ## Whether the hero can see enemy u now.
 func sees(u: Unit) -> bool:
-	return can_see(u.pos) and sees_body(hero, u)
+	return can_see(u.pos) and hero.pos.distance_to(u.pos) <= seen_within(u.pos, INF) and sees_body(hero, u)
 
 
 ## Whether a can see b: nothing in the way that hides (walls, pillars,
@@ -1157,6 +1164,78 @@ static func _crosses(a: Vector2, b: Vector2, r: Rect2) -> bool:
 		if r.has_point(a.lerp(b, float(i) / maxi(n, 1))):
 			return true
 	return false
+
+
+## LIGHT: how lit p is: 0 dark, 1 dim, 2 lit.
+func light_at(p: Vector2) -> int:
+	var q := square(p)
+	return light[q.y * fog_size.x + q.x]
+
+
+## How far someone at p can be seen from (as far as `sight` if lit).
+func seen_within(p: Vector2, sight: float) -> float:
+	return [Acts.DARK_SIGHT, Acts.DIM_SIGHT, sight][light_at(p)]
+
+
+## The light from the sun (or none) and the lights that stay put, after a
+## door changes.
+func _fixed_light() -> void:
+	var n := fog_size.x * fog_size.y
+	fixed_light.resize(n)
+	var sun: Dictionary = Acts.SUNS.get(map.get("sun", ""), {})
+	if sun.is_empty():
+		fixed_light.fill(0 if map.get("dark", false) else 2)
+	else:
+		fixed_light.fill(2)
+		var to := Vector2.from_angle(deg_to_rad(float(sun["from"])))
+		var far := float(sun["len"])
+		if far > 0.0:
+			for y in fog_size.y:
+				for x in fog_size.x:
+					var c := area.position + (Vector2(x, y) + Vector2(0.5, 0.5)) * Acts.FOG
+					var i := y * fog_size.x + x
+					if (SIGHT_STOPS >> solid[i]) & 1:
+						continue
+					var t := float(Acts.FOG)
+					while t <= far:
+						var q := square(c + to * t)
+						if (SIGHT_STOPS >> solid[q.y * fog_size.x + q.x]) & 1:
+							fixed_light[i] = 1
+							break
+						t += Acts.FOG
+	for l in lights:
+		_shine(fixed_light, l["at"], Acts.LIGHTS[l["k"]])
+
+
+## Light now: the fixed light and every enemy's lantern.
+func _light() -> void:
+	if fixed_light.size() != fog_size.x * fog_size.y:
+		_fixed_light()
+	light = fixed_light.duplicate()
+	for f in foes:
+		if f.alive():
+			_shine(light, f.pos, Acts.LIGHTS["lantern"])
+
+
+## Adds a light at p to `into`: lit near, dim further, not past what
+## throws a shadow (which is lit itself on the side facing it).
+func _shine(into: PackedByteArray, p: Vector2, l: Dictionary) -> void:
+	var dim := float(l["dim"])
+	var a := square(p - Vector2(dim, dim))
+	var b := square(p + Vector2(dim, dim))
+	for y in range(a.y, b.y + 1):
+		for x in range(a.x, b.x + 1):
+			var c := area.position + (Vector2(x, y) + Vector2(0.5, 0.5)) * Acts.FOG
+			var d := c.distance_to(p)
+			var i := y * fog_size.x + x
+			var v := 2 if d <= float(l["lit"]) else 1
+			if d > dim or into[i] >= v:
+				continue
+			var to := c
+			if (SIGHT_STOPS >> solid[i]) & 1:
+				to = c + (p - c).normalized() * Acts.FOG
+			if square(to) == square(p) or los(p, to):
+				into[i] = v
 
 
 ## Whether the hero can see p now.

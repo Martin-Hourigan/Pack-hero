@@ -468,6 +468,7 @@ func _rooms() -> void:
 		d.step()
 	check(e.pos.distance_to(d.hero.pos) < far - 20.0, "an enemy comes round a pillar to you", str(e.pos))
 	_hiding()
+	_lighting()
 	# What's been seen is remembered after dying; the doors close again.
 	var seen_before := 0
 	for b in d.memory[0]:
@@ -505,6 +506,44 @@ func _rooms() -> void:
 
 
 ## Hiding: the cone, low walls, shrubs; enemies turn so far a step.
+## LIGHT: lights, lanterns, shadows, the sun, and how far you're seen.
+func _lighting() -> void:
+	var m := {"area": Rect2(0, 0, 400, 200), "start": Vector2(40, 100), "dark": true,
+		"pillars": [Rect2(160, 80, 20, 40)],
+		"lights": [{"k": "torch", "at": Vector2(140, 100)}],
+		"foes": [{"k": "soldier", "at": Vector2(360, 100), "a": PI}]}
+	var d := Duel.new(1, Acts.HANDS, m)
+	var e: Unit = d.foes[0]
+	check(d.light_at(Vector2(140, 110)) == 2 and d.light_at(Vector2(140, 140)) == 1 and d.light_at(Vector2(40, 40)) == 0,
+		"a torch: lit near, dim further, dark past that")
+	check(d.light_at(Vector2(190, 100)) == 0, "a pillar throws a shadow")
+	check(d.light_at(e.pos) == 2, "an enemy's lantern lights it")
+	d.hero.pos = Vector2(300, 60)
+	d._look()
+	check(d.light_at(d.hero.pos) == 0 and not d.spots(e), "in the dark: not seen from 70 px")
+	d.hero.pos = Vector2(330, 80)
+	check(d.spots(e), "but seen near")
+	d.hero.pos = Vector2(80, 100)
+	e.pos = Vector2(260, 30)
+	d._light()
+	d._look()
+	check(d.can_see(e.pos) and d.light_at(e.pos) == 2 and d.sees(e), "a lantern: you see it from far off")
+	e.pos = Vector2(130, 60)
+	d.foes.erase(e)
+	d._light()
+	d.foes.append(e)
+	check(d.light_at(e.pos) == 1 and d.hero.pos.distance_to(e.pos) <= Acts.DIM_SIGHT and d.sees(e), "dim, and near enough: seen")
+	m.erase("dark")
+	m.erase("lights")
+	m["sun"] = "morning"
+	d = Duel.new(1, Acts.HANDS, m)
+	check(d.light_at(Vector2(150, 100)) == 1 and d.light_at(Vector2(190, 100)) == 2 and d.light_at(Vector2(40, 40)) == 2,
+		"the morning sun: a shadow on the far side of the pillar from it")
+	m["sun"] = "noon"
+	d = Duel.new(1, Acts.HANDS, m)
+	check(d.light_at(Vector2(155, 100)) == 2, "noon: no shadows")
+
+
 func _hiding() -> void:
 	var box := Rect2(90, 6, 204, 204)
 	check(DuelHud.edge(Vector2(192, 108), Vector2(400, 108), box) == Vector2(294, 108)

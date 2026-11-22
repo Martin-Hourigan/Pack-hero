@@ -416,6 +416,31 @@ timing. PLACEHOLDER: only if you can see it; 7 px over its body.
 VIEW RANGE (2026-11-23), DECIDED (Martin): enemies see further.
 PLACEHOLDER: Acts.AGGRO 100 -> 160 px.
 
+LIGHT (2026-11-23)
+DECIDED (Martin): lighting and shadows, for stealth. Light sources like a
+campfire or a torch: a torch either side of each door, a lantern on every
+enemy, a campfire somewhere to see what one looks like. Later, outside or
+an overworld: a sun, all the light from one direction, or overhead with
+no shadows except from trees; a few places it could be.
+DECIDED (my suggestions, not objected to): fixed lights first; walls,
+pillars and closed doors throw shadows, low walls and shrubs don't;
+three steps, lit / dim / dark; less light, seen from less far, the same
+for everyone.
+BUILT: each square lit, dim or dark (Duel.light, light_at); MAP dark
+(lit only by its lights; maps without it are all lit, like the knight's
+arena); MAP lights; Acts.LIGHTS torch / campfire / lantern; Acts.SUNS
+noon / morning / evening (MAP sun; dev --sun=morning shows the map
+outside). Spotting: someone dim is seen only within DIM_SIGHT, dark
+within DARK_SIGHT, lit as far as the one looking sees (an enemy: AGGRO;
+the hero: what's in sight). Dim and dark squares in sight drawn darker
+(puppets aren't); torch, campfire and lantern drawn small.
+PLACEHOLDER: torch lit 24 / dim 56 px, campfire 40 / 88, lantern 12 /
+32; DIM_SIGHT 80, DARK_SIGHT 40; shading 0.4 dim, 0.7 dark; the sun's
+shadows 24 px (morning from the east, evening from the west), shadow =
+dim; torches on the side you come to each door from; the campfire at
+(700, 140) in the second area; lights don't flicker (only the flames);
+no trees yet; the hero carries no light; crouching doesn't change it.
+
 BOW TIMING (2026-11-23)
 DECIDED (Martin): drawing a bow takes longer, and so does the end of the
 shot (not a cooldown), so you can't loose two arrows before the enemy
