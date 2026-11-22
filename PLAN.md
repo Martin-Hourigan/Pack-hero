@@ -450,6 +450,11 @@ shaders/shade.gdshader (the fog and the light; the light smoothed and
 dithered 4x4 between lit / dim / dark, on the world's pixels). Only the
 look: who's seen still goes by the square's own lit / dim / dark.
 PLACEHOLDER: smoothed over about 3 squares (12 px) each way.
+Into the dark, too (2026-11-23), DECIDED (Martin): going into the dark
+dithers into the outline the same way; half in, half of you is outline.
+BUILT: the outlines drawn over everyone, shown only on the pixels that
+are dark (shaders/dark.gdshader; shaders/light.gdshaderinc shared with
+the floor).
 
 BOW TIMING (2026-11-23)
 DECIDED (Martin): drawing a bow takes longer, and so does the end of the

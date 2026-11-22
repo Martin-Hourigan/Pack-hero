@@ -38,6 +38,7 @@ var _light_tex: ImageTexture
 var _fog_key := []  # what the fog and light textures were made from
 var _ground := Node2D.new()  # the room, drawn under the shade
 var _shade := Node2D.new()  # the fog and the light, drawn under the rest
+var _dark := Node2D.new()  # who's in the dark, as outlines over them
 var _edges: Array = []  # the walls' edges: [Rect2, square x, square y]
 var _edges_of: Duel = null
 
@@ -55,11 +56,18 @@ func _ready() -> void:
 	m.set_shader_parameter("dim_shade", DIM_SHADE)
 	m.set_shader_parameter("dark_shade", DARK_SHADE)
 	_shade.material = m
+	add_child(_dark)
+	_dark.draw.connect(func(): if _drawing(): _outlines(main.duel))
+	var dm := ShaderMaterial.new()
+	dm.shader = preload("res://shaders/dark.gdshader")
+	dm.set_shader_parameter("square_px", float(Acts.FOG))
+	_dark.material = dm
 
 
 func _process(_dt: float) -> void:
 	_ground.queue_redraw()
 	_shade.queue_redraw()
+	_dark.queue_redraw()
 
 
 func _drawing() -> bool:
@@ -73,10 +81,8 @@ func _draw() -> void:
 	_walls(d)
 	_ghosts(d)
 	_preview(d)
-	var order: Array = d.units.filter(func(u): return u.alive() and (u == d.hero or d.sees(u)))
-	order.sort_custom(func(a, b): return a.pos.y < b.pos.y)
 	_sketches(d)
-	for u in order:
+	for u in _order(d):
 		_unit(d, u)
 	_foe_bars(d)
 	_hidden(d)
@@ -340,7 +346,15 @@ func _preview(d: Duel) -> void:
 				_ring(e["pos"], Duel._radius(h), Pal.INK.darkened(0.6))
 
 
-func _unit(d: Duel, u: Unit) -> void:
+## The units drawn: the hero and the enemies he sees, back to front.
+func _order(d: Duel) -> Array:
+	var order: Array = d.units.filter(func(u): return u.alive() and (u == d.hero or d.sees(u)))
+	order.sort_custom(func(a, b): return a.pos.y < b.pos.y)
+	return order
+
+
+## Where u's drawn now: [pos, angle, pose] (part way through the step).
+func _placed(u: Unit) -> Array:
 	var t: float = main.u
 	var was: Dictionary = u.was
 	var p := u.pos
@@ -350,16 +364,38 @@ func _unit(d: Duel, u: Unit) -> void:
 		p = Vector2(was["pos"]).lerp(u.pos, t)
 		a = lerp_angle(float(was["ang"]), u.ang, t)
 		pose = RigArt.blend(was["pose"], u.pose, t)
-	var s := float(u.data()["scale"])
 	if String(u.cur.get("k", "")) == "stagger":
 		a += sin(main.clock * 30.0) * 0.12  # reeling
+	return [p, a, pose]
+
+
+## Everyone drawn, again as a light grey outline filled dark, shown only
+## on the pixels that are dark (shaders/dark.gdshader): half in the dark,
+## half of them is outline.
+func _outlines(d: Duel) -> void:
+	var m: ShaderMaterial = _dark.material
+	m.set_shader_parameter("light", _light_tex)
+	m.set_shader_parameter("squares", Vector2(d.fog_size))
+	m.set_shader_parameter("origin", d.area.position)
+	for u in _order(d):
+		if u.flash >= 0.5:
+			continue
+		var at := _placed(u)
+		var s := float(u.data()["scale"])
+		for e in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+			RigArt.draw(_dark, d.art(u), Transform2D(at[1], Vector2(s, s), 0.0, _px(at[0]) + e), {"pose": at[2], "all": DARK_LINE})
+		RigArt.draw(_dark, d.art(u), Transform2D(at[1], Vector2(s, s), 0.0, _px(at[0])), {"pose": at[2], "all": DARK_FILL})
+
+
+func _unit(d: Duel, u: Unit) -> void:
+	var at := _placed(u)
+	var p: Vector2 = at[0]
+	var a: float = at[1]
+	var pose: Dictionary = at[2]
+	var s := float(u.data()["scale"])
 	var o := {"pose": pose}
 	if u.flash >= 0.5:
 		o["all"] = Color.WHITE
-	elif d.light_at(p) == 0:
-		for e in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
-			RigArt.draw(self, d.art(u), Transform2D(a, Vector2(s, s), 0.0, _px(p) + e), {"pose": pose, "all": DARK_LINE})
-		o["all"] = DARK_FILL
 	RigArt.draw(self, d.art(u), Transform2D(a, Vector2(s, s), 0.0, _px(p)), o)
 	if u.side == "enemy":
 		# Its lantern, at its side.
