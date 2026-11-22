@@ -7,9 +7,10 @@ extends Node2D
 var main = null
 
 const STEAL := Color("#6fb7a8")  # the stamina bar
-## An enemy off the view spotting the hero: a ! in a circle flips up at
-## the view's edge where it is (s to flip up, s it stays), then a dot
-## there while it's off the view and knows of him. PLACEHOLDER.
+## An enemy spotting the hero: a ! in a circle flips up (s to flip up, s
+## it stays), a small one over it if it's on the view and seen, else on
+## the view's edge where it is, then a dot there while it's off the view
+## and knows of him. PLACEHOLDER.
 const ALERT_FLIP := 0.12
 const ALERT_HOLD := 1.2
 const ALERT_IN := 6.0  # px in from the view's edge
@@ -91,15 +92,19 @@ func _alerts(d: Duel) -> void:
 			continue
 		if not known.has(f):
 			known[f] = true
-			if off:
-				alerts[f] = now
+			alerts[f] = now
+		var age := (now - int(alerts.get(f, -100000))) / 1000.0
+		var up := minf(age / ALERT_FLIP, 1.0)
 		if not off:
-			alerts.erase(f)
+			if age < ALERT_HOLD and d.sees(f):
+				var q: Vector2 = f.pos
+				if not f.was.is_empty() and main.u < 1.0:
+					q = Vector2(f.was["pos"]).lerp(f.pos, main.u)
+				_alert(_px(q - main.cam + r.position + Vector2(0, -Duel._radius(f) - 7)), up, 3)
 			continue
 		var at := _px(edge(h, p, r.grow(-ALERT_IN)))
-		var age := (now - int(alerts.get(f, -100000))) / 1000.0
 		if age < ALERT_HOLD:
-			_alert(at, minf(age / ALERT_FLIP, 1.0))
+			_alert(at, up)
 		else:
 			draw_rect(Rect2(at - Vector2(1, 1), Vector2(3, 3)), Pal.DANGER)
 
@@ -116,17 +121,17 @@ static func edge(c: Vector2, p: Vector2, r: Rect2) -> Vector2:
 	return (c + v * maxf(t, 0.0)).clamp(r.position, r.end)
 
 
-## A ! in a circle at `at`, `up` of the way flipped up (squashed flat
-## at 0).
-func _alert(at: Vector2, up: float) -> void:
-	var rad := 5
+## A ! in a circle (rad px) at `at`, `up` of the way flipped up (squashed
+## flat at 0).
+func _alert(at: Vector2, up: float, rad := 5) -> void:
 	for y in range(-rad, rad + 1):
 		var row := int(round(y * up))
 		var w := int(floor(sqrt((rad + 0.5) * (rad + 0.5) - y * y)))
 		draw_rect(Rect2(at.x - w, at.y + row, 2 * w + 1, 1), Pal.DANGER)
 	if up >= 1.0:
-		draw_rect(Rect2(at.x, at.y - 3, 1, 4), Pal.BG)
-		draw_rect(Rect2(at.x, at.y + 2, 1, 1), Pal.BG)
+		var big := 1 if rad >= 5 else 0
+		draw_rect(Rect2(at.x, at.y - 2 - big, 1, 2 + 2 * big), Pal.BG)
+		draw_rect(Rect2(at.x, at.y + 1 + big, 1, 1), Pal.BG)
 
 
 func _wig(d: Duel, k: String) -> float:

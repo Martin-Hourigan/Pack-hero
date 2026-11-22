@@ -409,6 +409,12 @@ start don't flip up.
 PLACEHOLDER: flips up in 0.12 s, stays 1.2 s; 6 px in from the edge;
 the danger orange; shows standing or crouching; an enemy on the view but
 out of sight (behind a wall) gets no mark; a dot, no arrow.
+ON THE VIEW (2026-11-23), DECIDED (Martin): an enemy on the screen that
+spots you gets a smaller ! too (like Metal Gear Solid).
+BUILT: a smaller ! in a circle (3 px) flips up over its head, the same
+timing. PLACEHOLDER: only if you can see it; 7 px over its body.
+VIEW RANGE (2026-11-23), DECIDED (Martin): enemies see further.
+PLACEHOLDER: Acts.AGGRO 100 -> 160 px.
 
 BOW TIMING (2026-11-23)
 DECIDED (Martin): drawing a bow takes longer, and so does the end of the

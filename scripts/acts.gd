@@ -96,7 +96,7 @@ const MAP := {
 }
 ## An enemy comes for the hero once it sees him within this (px; or once
 ## hit). PLACEHOLDER.
-const AGGRO := 100.0
+const AGGRO := 160.0
 ## An enemy sees only within this cone ahead of it (degrees across).
 ## PLACEHOLDER.
 const CONE := 120.0
