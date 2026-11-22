@@ -31,7 +31,8 @@ var last := ""  # its last attack
 var aware := false  # an enemy that has seen the hero (it acts once it has)
 var heard := Vector2.INF  # where an enemy last heard the hero (INF: never)
 var inspect := false  # going to look where it heard him
-var crouch := false  # CROUCH: low (slower walking; hidden behind low walls)
+var crouch := false  # CROUCH: low (slower walking; hidden behind low walls and shrubs)
+var sketch := {}  # an enemy: {pos, ang, pose} where the hero last saw it ({}: none)
 
 
 func _init(k: String, at: Vector2, a: float) -> void:

@@ -337,6 +337,22 @@ wall when crouching within 8 px of it; the shadow 8 px + 1 px for every
 16 px long; no crouching pose; being hit doesn't stand you up; crouching
 mid-walk only slows the next walk.
 
+SEEING OVER (2026-11-22; replaces the low-wall shadow above)
+DECIDED (Martin): standing, only a short distance past a shrub or low wall
+is hidden, and only to someone crouching or something low (a dog, a rat,
+a spider); crouching, shrubs and low walls block vision like a full wall
+(the fog too). A small sketch of an enemy where it was last seen before
+it disappeared or became hidden.
+BUILT: standing, you see over shrubs and low walls; someone crouching (or
+an enemy with "low") within Acts.LOW_SHADOW of one, past it, is hidden;
+in a shrub is still hidden unless you touch it or are in it; from in a
+shrub, still only Acts.SHRUB_SIGHT. Crouching, shrubs and low walls stop
+sight and the fog. Unit.sketch: an enemy out of sight is drawn flat
+grey where last seen, until seen again, dead, or you see the spot and
+it's gone.
+PLACEHOLDER: the short distance 8 px (the same however far away you
+are); the sketch colour; no low enemies exist yet.
+
 SOUND (2026-11-22)
 DECIDED (Martin): weapons and armour make noise; noise is linear, every
 item's noise added up. It goes out from you in rings: the outer 30 is

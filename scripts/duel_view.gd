@@ -19,6 +19,8 @@ const SHRUB := Color("#2e3626")
 const SHRUB_LEAF := Color("#4c5a3c")
 const LOW_WALL := Color("#3a3732")
 const LOW_EDGE := Color("#8a8478")
+## Where an enemy was last seen: its puppet in one flat colour. PLACEHOLDER.
+const SKETCH := Color("#3a3732")
 
 var _fog_tex: ImageTexture
 var _fog_key := []  # what the fog texture was made from
@@ -41,6 +43,7 @@ func _draw() -> void:
 	_preview(d)
 	var order: Array = d.units.filter(func(u): return u.alive() and (u == d.hero or d.sees(u)))
 	order.sort_custom(func(a, b): return a.pos.y < b.pos.y)
+	_sketches(d)
 	for u in order:
 		_unit(d, u)
 	_foe_bars(d)
@@ -138,6 +141,15 @@ func _foe_bars(d: Duel) -> void:
 			var at := _px(f.pos + Vector2(-5, -11))
 			draw_rect(Rect2(at, Vector2(10, 1)), Pal.DARK)
 			draw_rect(Rect2(at, Vector2(round(10.0 * f.hp / f.max_hp), 1)), Pal.DIM)
+
+
+## Each enemy out of sight, sketched where it was last seen.
+func _sketches(d: Duel) -> void:
+	for f in d.foes:
+		if f.alive() and not f.sketch.is_empty() and not d.sees(f):
+			var s := float(f.data()["scale"])
+			RigArt.draw(self, d.art(f), Transform2D(float(f.sketch["ang"]), Vector2(s, s), 0.0, _px(f.sketch["pos"])),
+				{"pose": f.sketch["pose"], "all": SKETCH})
 
 
 ## HIDDEN (crouching): a shut eye over each enemy (seen) the hero is

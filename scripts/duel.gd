@@ -67,7 +67,8 @@ const KNIGHT_ROOM := {"area": Acts.ARENA, "start": Vector2(110, 92),
 ## What a fog square is.
 enum {OPEN, WALL, PILLAR, DOOR, LOW, SHRUB}
 ## What stops sight, a body, a shot (bits of the kinds of square).
-const SIGHT_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR) | (1 << SHRUB)
+const SIGHT_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR)
+const CROUCH_SIGHT_STOPS := SIGHT_STOPS | (1 << SHRUB) | (1 << LOW)
 const WALK_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR) | (1 << LOW)
 const SHOT_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR)
 const SOUND_STOPS := (1 << WALL) | (1 << DOOR)
@@ -126,6 +127,7 @@ func _init(seed_ := 0, gear_ := Acts.HANDS, map_: Dictionary = KNIGHT_ROOM, firs
 		memory[room_i] = m
 	_build()
 	_look()
+	_sketches()
 
 
 func _add(k: String, at: Vector2, a: float) -> Unit:
@@ -295,6 +297,8 @@ func two_tool() -> String:
 ## Crouches or stands up.
 func toggle_crouch() -> void:
 	hero.crouch = not hero.crouch
+	_look()
+	_sketches()
 
 
 ## Turns GUARD on or off; false (it wiggles) if there's nothing to block with.
@@ -756,6 +760,7 @@ func step() -> void:
 	if walking and foe_starts and String(hero.cur.get("k", "")) == "move":
 		hero.cur = {}
 	_look()
+	_sketches()
 	if target != null and (not target.alive() or not sees(target)):
 		target = null
 	if hero.hp <= 0:
@@ -921,7 +926,7 @@ func _build() -> void:
 			var bits := 0
 			for b in 4:
 				var q: Vector2i = Vector2i(x, y) + SIDES[b]
-				if q.x >= 0 and q.y >= 0 and q.x < fog_size.x and q.y < fog_size.y and (SIGHT_STOPS >> solid[q.y * fog_size.x + q.x]) & 1:
+				if q.x >= 0 and q.y >= 0 and q.x < fog_size.x and q.y < fog_size.y and (CROUCH_SIGHT_STOPS >> solid[q.y * fog_size.x + q.x]) & 1:
 					bits |= 1 << b
 			touches[y * fog_size.x + x] = bits
 	paths = AStarGrid2D.new()
@@ -1086,10 +1091,9 @@ func sees(u: Unit) -> bool:
 
 
 ## Whether a can see b: nothing in the way that hides (walls, pillars,
-## closed doors, shrubs); b not in a shrub, unless a's in it too or
-## touching it. A low wall between them: a crouching behind it sees
-## nothing past it; b crouching past it is hidden near it (more the
-## further a is from it). From in a shrub, only so far.
+## closed doors; shrubs and low walls too if a's crouching); b not in a
+## shrub, unless a's in it too or touching it; b, low, not just past a
+## shrub or low wall between them. From in a shrub, only so far.
 func sees_body(a: Unit, b: Unit) -> bool:
 	var mine := shrub_at(a.pos)
 	if mine.has_area() and a.pos.distance_to(b.pos) > Acts.SHRUB_SIGHT:
@@ -1100,14 +1104,28 @@ func sees_body(a: Unit, b: Unit) -> bool:
 		if not theirs.grow(_radius(a) + 1.0).has_point(a.pos):
 			return false
 		skip.append(theirs)
-	for lw in low_walls:
-		var r: Rect2 = lw
-		if (a.crouch or b.crouch) and _crosses(a.pos, b.pos, r):
-			if a.crouch and _gap(r, a) <= Acts.LOW_HIDE:
+	if is_low(b):
+		for r in low_walls + shrubs:
+			if r != mine and r != theirs and _gap(r, b) <= Acts.LOW_SHADOW and _crosses(a.pos, b.pos, r):
 				return false
-			if b.crouch and _gap(r, b) <= Acts.LOW_SHADOW + _gap(r, a) / Acts.LOW_SPREAD:
-				return false
-	return los(a.pos, b.pos, SIGHT_STOPS, skip)
+	return los(a.pos, b.pos, CROUCH_SIGHT_STOPS if a.crouch else SIGHT_STOPS, skip)
+
+
+## Whether u is low: crouching, or one that always is (a dog, a rat).
+func is_low(u: Unit) -> bool:
+	return u.crouch or (u.side == "enemy" and foe_data(u).get("low", false))
+
+
+## Where the hero last saw each enemy: kept once it's out of sight, until
+## it's seen again, dies, or he sees the spot and it isn't there.
+func _sketches() -> void:
+	for f in foes:
+		if not f.alive():
+			f.sketch = {}
+		elif sees(f):
+			f.sketch = {"pos": f.pos, "ang": f.ang, "pose": f.pose}
+		elif not f.sketch.is_empty() and can_see(f.sketch["pos"]) and f.pos.distance_to(f.sketch["pos"]) > 8.0:
+			f.sketch = {}
 
 
 ## Px from u's body to r.
@@ -1142,8 +1160,8 @@ func can_see(p: Vector2) -> bool:
 ## The squares the hero sees now (a line from him to every edge square,
 ## up to the first one sight stops at, which is seen too, as is anything
 ## sight stops at next to a square seen; a shrub seen is seen whole); from
-## in a shrub, only so far (and out through it); crouching behind a low
-## wall, not past it. They're remembered.
+## in a shrub, only so far (and out through it); crouching, not past shrubs
+## and low walls. They're remembered.
 func _look() -> void:
 	var n := fog_size.x * fog_size.y
 	sight.resize(n)
@@ -1152,7 +1170,7 @@ func _look() -> void:
 	var h := square(hero.pos)
 	var mine := shrub_at(hero.pos)
 	var far := Acts.SHRUB_SIGHT / Acts.FOG if mine.has_area() else INF
-	var behind: Array = low_walls.filter(func(r): return hero.crouch and _gap(r, hero) <= Acts.LOW_HIDE)
+	var stops := CROUCH_SIGHT_STOPS if hero.crouch else SIGHT_STOPS
 	var ends: Array = []
 	for x in fog_size.x:
 		ends.append(Vector2i(x, 0))
@@ -1176,9 +1194,7 @@ func _look() -> void:
 			sight[i] = 1
 			seen[i] = 1
 			var c := area.position + (Vector2(x, y) + Vector2(0.5, 0.5)) * Acts.FOG
-			if (SIGHT_STOPS >> solid[i]) & 1 and Vector2i(x, y) != h and not mine.has_point(c):
-				break
-			if solid[i] == LOW and behind.any(func(r): return Rect2(r).has_point(c)):
+			if (stops >> solid[i]) & 1 and Vector2i(x, y) != h and not mine.has_point(c):
 				break
 			if touches[i] != 0:
 				for b in 4:

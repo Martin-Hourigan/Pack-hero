@@ -74,10 +74,8 @@ const ARENA := Rect2(12, 12, 360, 158)
 ## and stays shut while the knight lives. starts: where the hero begins in
 ## each area (the run starts in the first). pillars: Rect2s that block
 ## walking, shots and sight. shrubs: Rect2s you can walk through that hide
-## what's in them (shots go through). low walls: Rect2s that block walking;
-## you can see and shoot over them; crouching behind one you see nothing
-## past it, and someone crouching on the far side is hidden near it (more
-## the further you are from it). foes: {k (Acts.FOES), at, a (facing; left if
+## what's in them (shots go through). low walls: Rect2s that block walking
+## (shots go over). Both: see LOW_SHADOW. foes: {k (Acts.FOES), at, a (facing; left if
 ## not said)}. All PLACEHOLDER.
 const MAP := {
 	"areas": [Rect2(0, 0, 360, 200), Rect2(420, 0, 420, 260), Rect2(400, 320, 460, 320), Rect2(0, 380, 360, 200)],
@@ -104,14 +102,10 @@ const AGGRO := 100.0
 const CONE := 120.0
 ## From in a shrub you see only this far (px). PLACEHOLDER.
 const SHRUB_SIGHT := 40.0
-## Crouching within this of a low wall (px, past the body), you see
-## nothing past it. PLACEHOLDER.
-const LOW_HIDE := 8.0
-## Someone crouching past a low wall is hidden within this of it (px, past
-## the body), plus a px for every LOW_SPREAD px you are from the wall.
-## PLACEHOLDER.
+## Standing, you see over shrubs and low walls, but someone crouching (or
+## low) just past one is hidden: within this of it (px, past the body).
+## Crouching, they block your sight like a wall. PLACEHOLDER.
 const LOW_SHADOW := 8.0
-const LOW_SPREAD := 4.0
 ## SOUND: the hero doing anything but waiting makes noise (his items' noise
 ## added up, halved crouching) that reaches that many px. The outer
 ## NOISE_BAND px of it are low (an enemy turns to it), the next NOISE_BAND
@@ -309,6 +303,7 @@ const BURNS := {
 ## nearer than `near`), "archer" (keep between `near` and `far` px and
 ## shoot). attacks: the ones it picks from. turn: degrees it turns at most
 ## in a step (walking, winding up, everything). poise / stagger / calm: as the knight's.
+## low: true for one that's always low, as if crouching (a dog, a rat).
 ## An attack's `after`: steps it waits once it's done.
 const KNIGHT := {
 	"ai": "knight", "attacks": ["sweep", "backhand", "overhead"],
