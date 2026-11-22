@@ -370,6 +370,16 @@ enemy starting an attack stops HOLD until you press again; on the phone
 where your finger is (dragging steers rather than moving the view);
 WALK TO is the default.
 
+THE VIEW LEANS TOWARD THE MOUSE (2026-11-22)
+DECIDED (Martin): the view scrolls around when the mouse moves further
+from the player.
+BUILT (PC): past main.LOOK_NEAR px from the view's middle, the view leans
+toward the mouse by LOOK_LEAN px a px, eased; kept to the map, the hero
+always on the view. The mouse over the side buttons: it stays leaning.
+PLACEHOLDER: 40 px before it leans, 0.8 px a px (at the view's edge
+about 55 px); how fast it eases; not on the phone (dragging looks
+around there).
+
 SOUND (2026-11-22)
 DECIDED (Martin): weapons and armour make noise; noise is linear, every
 item's noise added up. It goes out from you in rings: the outer 30 is
