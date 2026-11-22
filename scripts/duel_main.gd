@@ -70,6 +70,10 @@ var view: DuelView
 var hud: DuelHud
 var cam := Vector2.ZERO  # the world point at VIEW's top left
 var pan := Vector2.ZERO  # how far you've dragged the view off the hero
+var homing := false  # the hero did something: the view scrolls back to him
+## How fast it scrolls back (the gap shrinks this much a second, eased).
+## PLACEHOLDER.
+const HOME_RATE := 5.0
 var pressed_at := Vector2.INF  # a press on the view, until it's let go
 var dragged := false  # that press has become a drag
 var touch := false  # taps: aim, then tap again to do it
@@ -211,6 +215,11 @@ func _camera(dt: float) -> void:
 		var off := hover - VIEW.get_center()
 		var want_look := off.normalized() * maxf(off.length() - LOOK_NEAR, 0.0) * LOOK_LEAN if off.length() > 0.0 else Vector2.ZERO
 		look = look.lerp(want_look, 1.0 - exp(-dt * 6.0))  # eased
+	if homing:
+		pan = pan.lerp(Vector2.ZERO, 1.0 - exp(-dt * HOME_RATE))
+		if pan.length() < 0.5:
+			pan = Vector2.ZERO
+			homing = false
 	var a := duel.area.grow(12)
 	var c := p + look - VIEW.size / 2.0
 	for i in 2:
@@ -295,6 +304,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 	elif ev is InputEventMouseMotion and mode == "duel":
 		if ev.button_mask & MOUSE_BUTTON_MASK_RIGHT:
 			pan -= ev.relative  # PC: the right button drags the view
+			homing = false
 		elif pressed_at != Vector2.INF and ev.button_mask & MOUSE_BUTTON_MASK_LEFT:
 			var p := get_global_mouse_position()
 			if held == "walk":
@@ -307,6 +317,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 					hover = p  # dragging moves the aim
 				else:
 					pan -= ev.relative
+					homing = false
 
 
 ## Where each button is in the side columns: left MOVE, ROLL, the left
@@ -629,7 +640,7 @@ func act(k: String, at: Vector2) -> bool:
 	step_t = STEP_T
 	var ok := duel.plan(k, at)
 	if ok:
-		pan = Vector2.ZERO
+		homing = true
 		_step()
 	return ok
 

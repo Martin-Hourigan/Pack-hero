@@ -376,7 +376,9 @@ from the player.
 BUILT (PC): past main.LOOK_NEAR px from the view's middle, the view leans
 toward the mouse by LOOK_LEAN px a px, eased; kept to the map, the hero
 always on the view. The mouse over the side buttons: it stays leaning.
-PLACEHOLDER: 40 px before it leans, 0.8 px a px (at the view's edge
+Moved off with the right button (or a drag), the view no longer snaps
+back when you do something: it scrolls back (main.HOME_RATE, eased).
+PLACEHOLDER: the scroll back takes about a second; 40 px before it leans, 0.8 px a px (at the view's edge
 about 55 px); how fast it eases; not on the phone (dragging looks
 around there).
 
