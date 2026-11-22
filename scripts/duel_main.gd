@@ -44,6 +44,7 @@ extends Node2D
 
 const STEP_T := 0.07  # s a step takes on screen
 const HOLD_T := 0.3  # s from one step to the next while WAIT is held
+const STEER_T := 0.12  # s a step takes on screen while MOVE is held (one after another, no gap)
 const TOOLS := [["1", "move"], ["2", "roll"], ["3", "hand:left"], ["4", "hand:right"], ["5", "flask"]]
 const KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5]
 const TOGGLES := [["Q", "lock", "LOCK"], ["C", "crouch", "CROUCH"], ["E", "two", "2H"], ["F", "guard", "GUARD"]]
@@ -71,7 +72,7 @@ var touch := false  # taps: aim, then tap again to do it
 var aimed := false  # touch: a spot has been tapped
 var held := ""  # the button being held down
 var waited_at := 0.0  # clock when a held WAIT last waited
-var walked_at := 0.0  # clock when a held MOVE last stepped
+var step_t := STEP_T  # s the step being shown takes on screen
 ## MOVE's way of walking (tap MOVE again to choose): "to" (tap a spot:
 ## walk there), "hold" (held down: walk straight toward it, a step at a
 ## time, until let go), "step" (one step toward where you tap).
@@ -184,12 +185,12 @@ func _process(dt: float) -> void:
 			tool = "move"  # its item has been put away or changed
 		duel.fx(dt)
 		_camera()
-		u = minf(u + dt / STEP_T, 1.0)
+		u = minf(u + dt / step_t, 1.0)
 		if u >= 1.0 and duel.result == "" and not duel.hero.idle():
 			_step()
 		elif held == "wait" and duel.result == "" and duel.hero.idle() and clock - waited_at >= HOLD_T:
 			_wait()
-		elif held == "walk" and duel.result == "" and duel.hero.idle() and clock - walked_at >= HOLD_T:
+		elif held == "walk" and duel.result == "" and duel.hero.idle() and u >= 1.0:
 			_steer()
 	view.queue_redraw()
 	hud.queue_redraw()
@@ -248,8 +249,8 @@ func walk_name() -> String:
 
 ## A held MOVE: a step straight toward where it's held.
 func _steer() -> void:
-	walked_at = clock
-	act("steer", aim())
+	if act("steer", aim()):
+		step_t = STEER_T
 
 
 func _notification(what: int) -> void:
@@ -616,6 +617,7 @@ func _wait() -> void:
 func act(k: String, at: Vector2) -> bool:
 	if u < 1.0:
 		return false
+	step_t = STEP_T
 	var ok := duel.plan(k, at)
 	if ok:
 		pan = Vector2.ZERO

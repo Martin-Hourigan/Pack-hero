@@ -362,8 +362,9 @@ step's worth in that direction at a time, good for combat.
 BUILT: main.walk "to" / "hold" / "step" (WALK TO, HOLD, 1 STEP; shown
 under MOVE). Duel "steer": one step straight toward a point (slides along
 walls; no way round). HOLD steps every HOLD_T while held. The preview
-shows the one step for HOLD and 1 STEP.
-PLACEHOLDER: the names; HOLD's pace 0.3 s a step (as a held WAIT); an
+shows the one step for HOLD and 1 STEP. main.STEER_T.
+PLACEHOLDER: the names; HOLD's pace 0.12 s a step, one straight after
+another with no gap (Martin: 0.3 with a pause was jarring, too stilted); an
 enemy starting an attack stops HOLD until you press again; on the phone
 1 STEP is aim then tap again, like the other tools, and HOLD steers
 where your finger is (dragging steers rather than moving the view);
