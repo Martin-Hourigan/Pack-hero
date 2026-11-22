@@ -440,6 +440,10 @@ shadows 24 px (morning from the east, evening from the west), shadow =
 dim; torches on the side you come to each door from; the campfire at
 (700, 140) in the second area; lights don't flicker (only the flames);
 no trees yet; the hero carries no light; crouching doesn't change it.
+IN THE DARK (2026-11-23), DECIDED (Martin): anyone in the dark (the
+hero too) is drawn as a light grey outline, not in colour; dim is full
+colour. BUILT: DuelView._unit. PLACEHOLDER: outline #a29d92, 1 px, filled
+#070606; enemies carry lanterns, so it's mostly the hero.
 
 BOW TIMING (2026-11-23)
 DECIDED (Martin): drawing a bow takes longer, and so does the end of the

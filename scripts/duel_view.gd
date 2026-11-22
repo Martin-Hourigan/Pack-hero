@@ -28,6 +28,10 @@ const DARK_SHADE := 0.7
 const FLAME := Color("#e0a050")
 const FLAME_HOT := Color("#f2d08a")
 const WOOD := Color("#5a4632")
+## Someone in the dark: a light grey outline, filled the dark floor's
+## colour. PLACEHOLDER.
+const DARK_LINE := Color("#a29d92")
+const DARK_FILL := Color("#070606")
 
 var _fog_tex: ImageTexture
 var _fog_key := []  # what the fog texture was made from
@@ -320,6 +324,10 @@ func _unit(d: Duel, u: Unit) -> void:
 	var o := {"pose": pose}
 	if u.flash >= 0.5:
 		o["all"] = Color.WHITE
+	elif d.light_at(p) == 0:
+		for e in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+			RigArt.draw(self, d.art(u), Transform2D(a, Vector2(s, s), 0.0, _px(p) + e), {"pose": pose, "all": DARK_LINE})
+		o["all"] = DARK_FILL
 	RigArt.draw(self, d.art(u), Transform2D(a, Vector2(s, s), 0.0, _px(p)), o)
 	if u.side == "enemy":
 		# Its lantern, at its side.
