@@ -607,6 +607,20 @@ func _hiding() -> void:
 	e.heard = Vector2.INF
 	e.inspect = false
 	e.cur = {}
+	# Steering: a step straight toward where it's held.
+	d.hero.cur = {}
+	d.hero.pos = Vector2(60, 150)
+	d.toggle_crouch()
+	check(d.plan("steer", Vector2(60, 10)) and d.hero.cur["steps"].size() == 1 and d.hero.crouch, "steering: one step, still crouching")
+	d.step()
+	check(d.hero.pos.distance_to(Vector2(60, 148)) < 0.1, "a crouching step toward it", str(d.hero.pos))
+	d.toggle_crouch()
+	d.hero.cur = {}
+	d.hero.pos = Vector2(60, 190)
+	d.plan("steer", Vector2(100, 260))
+	d.step()
+	check(d.hero.pos.x > 60.5 and d.hero.pos.y <= 195.0, "into a wall at a slant: slides along it", str(d.hero.pos))
+	d.hero.cur = {}
 	# Turning.
 	e.pos = Vector2(250, 100)
 	e.ang = 0.0

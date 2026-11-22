@@ -248,7 +248,7 @@ func _preview(d: Duel) -> void:
 		return
 	if main.picking or (main.touch and not main.aimed and not (d.target != null and d.auto_aims(main.tool))):
 		return
-	var a: Dictionary = d.shape(main.tool, main.aim())
+	var a: Dictionary = d.shape(main.tool_k(), main.aim())
 	if a.is_empty():
 		return
 	var sp := d.spec(main.tool)

@@ -71,6 +71,12 @@ var touch := false  # taps: aim, then tap again to do it
 var aimed := false  # touch: a spot has been tapped
 var held := ""  # the button being held down
 var waited_at := 0.0  # clock when a held WAIT last waited
+var walked_at := 0.0  # clock when a held MOVE last stepped
+## MOVE's way of walking (tap MOVE again to choose): "to" (tap a spot:
+## walk there), "hold" (held down: walk straight toward it, a step at a
+## time, until let go), "step" (one step toward where you tap).
+var walk := "to"
+const WALKS := [["to", "WALK TO"], ["hold", "HOLD"], ["step", "1 STEP"]]
 var menu := ""  # the hand whose menu is open ("left", "right")
 var picking := false  # LOCK tapped: tap an enemy to lock on
 var slot := "right0"  # the gear screen's slot being filled
@@ -125,6 +131,8 @@ func _ready() -> void:
 			duel.toggle_guard()
 		if flags.has("crouch"):
 			duel.toggle_crouch()
+		if flags.has("menu"):
+			menu = String(flags["menu"])
 		if flags.has("lock"):
 			duel.target = duel.foes[0]
 		picking = flags.has("picking")
@@ -181,6 +189,8 @@ func _process(dt: float) -> void:
 			_step()
 		elif held == "wait" and duel.result == "" and duel.hero.idle() and clock - waited_at >= HOLD_T:
 			_wait()
+		elif held == "walk" and duel.result == "" and duel.hero.idle() and clock - walked_at >= HOLD_T:
+			_steer()
 	view.queue_redraw()
 	hud.queue_redraw()
 
@@ -218,6 +228,28 @@ func aim() -> Vector2:
 func _step() -> void:
 	duel.step()
 	u = 0.0
+	if held == "walk" and duel.foe_started:
+		held = ""  # an enemy's attack: steering stops until pressed again
+		pressed_at = Vector2.INF
+
+
+## What the tool does: MOVE walking a step at a time is "steer".
+func tool_k() -> String:
+	return "steer" if tool == "move" and walk != "to" else tool
+
+
+## The name of MOVE's way of walking.
+func walk_name() -> String:
+	for w in WALKS:
+		if w[0] == walk:
+			return w[1]
+	return ""
+
+
+## A held MOVE: a step straight toward where it's held.
+func _steer() -> void:
+	walked_at = clock
+	act("steer", aim())
 
 
 func _notification(what: int) -> void:
@@ -245,8 +277,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 		if ev.pressed:
 			_press(get_global_mouse_position())
 		else:
+			var steered := held == "walk"
 			held = ""
-			if pressed_at != Vector2.INF and not dragged and mode == "duel" and duel != null:
+			if pressed_at != Vector2.INF and not dragged and not steered and mode == "duel" and duel != null:
 				_tap_view(get_global_mouse_position())  # (on the phone a tap is done when let go)
 			pressed_at = Vector2.INF
 	elif ev is InputEventMouseMotion and mode == "duel":
@@ -254,6 +287,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 			pan -= ev.relative  # PC: the right button drags the view
 		elif pressed_at != Vector2.INF and ev.button_mask & MOUSE_BUTTON_MASK_LEFT:
 			var p := get_global_mouse_position()
+			if held == "walk":
+				hover = p  # steering: the hero walks toward it
+				return
 			if p.distance_to(pressed_at) > DRAG:
 				dragged = true
 			if dragged:
@@ -357,6 +393,11 @@ func _hand_key(h: String) -> String:
 func menu_buttons() -> Array:
 	if menu == "":
 		return []
+	if menu == "move":
+		var out := []
+		for i in WALKS.size():
+			out.append([Rect2(VIEW.position.x + 2.0, PLACES["move"].position.y + 18 * i, 80, 16), "walk:" + WALKS[i][0], WALKS[i][1]])
+		return out
 	var at := Rect2()
 	for b in buttons():
 		if b[1] == "hand:" + menu:
@@ -453,6 +494,11 @@ func _press(p: Vector2) -> void:
 		var m := _hit(menu_buttons(), p)
 		var was := menu
 		menu = ""
+		if m.begins_with("walk:"):
+			walk = m.trim_prefix("walk:")
+			return
+		if was == "move" and _hit(buttons(), p) == "move":
+			return  # MOVE again: just closed
 		if m != "":
 			if duel.spec(m).has("reload") or duel.spec(m).has("change"):
 				act(m, duel.hero.pos)
@@ -468,7 +514,12 @@ func _press(p: Vector2) -> void:
 		return
 	var b := _hit(buttons(), p)
 	if b == "" and VIEW.has_point(p):
-		if touch:
+		if tool == "move" and walk == "hold" and not picking:
+			pressed_at = p  # steering until let go
+			hover = p
+			held = "walk"
+			_steer()
+		elif touch:
 			pressed_at = p  # a tap, or a drag to look around
 			dragged = false
 		else:
@@ -483,6 +534,8 @@ func _press(p: Vector2) -> void:
 		_wait()
 	elif b == "flask":
 		act("flask", duel.hero.pos)
+	elif b == "move" and tool == "move":
+		menu = "move"  # MOVE again: how to walk
 	elif b != "":
 		tool = b
 		aimed = false
@@ -499,9 +552,9 @@ func _tap_view(p: Vector2) -> void:
 			picking = false
 		return  # (anywhere else: still picking)
 	if not touch or (duel.target != null and duel.auto_aims(tool)):
-		act(tool, to_world(p))
+		act(tool_k(), to_world(p))
 	elif aimed and p.distance_to(hover) <= SAME_TAP:
-		if act(tool, aim()):
+		if act(tool_k(), aim()):
 			aimed = false
 	else:
 		hover = p
@@ -544,6 +597,8 @@ func _key(k: int, echo: bool) -> void:
 		elif t.begins_with("hand:"):
 			var h := _hand_key(t.trim_prefix("hand:"))
 			menu = "" if menu == h else h
+		elif t == "move" and tool == "move":
+			menu = "" if menu == "move" else "move"
 		else:
 			tool = t
 			menu = ""

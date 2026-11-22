@@ -353,6 +353,22 @@ it's gone.
 PLACEHOLDER: the short distance 8 px (the same however far away you
 are); the sketch colour; no low enemies exist yet.
 
+MOVE'S WAYS OF WALKING (2026-11-22)
+DECIDED (Martin): with MOVE selected, tap/click it again for its
+settings: click and that's where you'll go (as before); hold the button
+down and the hero walks straight toward the cursor, adjusting as it
+moves, and letting go just stops him (not on to that point); and one
+step's worth in that direction at a time, good for combat.
+BUILT: main.walk "to" / "hold" / "step" (WALK TO, HOLD, 1 STEP; shown
+under MOVE). Duel "steer": one step straight toward a point (slides along
+walls; no way round). HOLD steps every HOLD_T while held. The preview
+shows the one step for HOLD and 1 STEP.
+PLACEHOLDER: the names; HOLD's pace 0.3 s a step (as a held WAIT); an
+enemy starting an attack stops HOLD until you press again; on the phone
+1 STEP is aim then tap again, like the other tools, and HOLD steers
+where your finger is (dragging steers rather than moving the view);
+WALK TO is the default.
+
 SOUND (2026-11-22)
 DECIDED (Martin): weapons and armour make noise; noise is linear, every
 item's noise added up. It goes out from you in rings: the outer 30 is

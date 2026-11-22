@@ -58,6 +58,7 @@ var guard := false  # GUARD: the hero's block is up
 var numbers: Array = []  # {p, s, life, col}
 var sparks: Array = []  # {p, v, life, max, col}
 var shake_amt := 0.0
+var foe_started := false  # an enemy started an attack in the last step
 var wiggle := {}  # HUD thing -> seconds left (a stamina bar that's too low)
 
 
@@ -467,6 +468,12 @@ func shape(k: String, at: Vector2) -> Dictionary:
 			if last.distance_to(p) > 0.01:
 				steps.append({"ph": "move", "to": p, "face": (p - last).angle()})
 			return _act(k, steps)
+		"steer":
+			# One step's walk straight toward `at` (held down: steering).
+			if at.distance_to(u.pos) < 1.0:
+				return {}
+			var go := minf(float(Acts.HERO["crouch_walk" if u.crouch else "walk"]), at.distance_to(u.pos))
+			return _act("move", [{"ph": "move", "to": u.pos + Vector2.from_angle(aim) * go, "face": aim}])
 		"roll":
 			var r: Dictionary = Acts.HERO["roll"]
 			var steps := []
@@ -546,9 +553,9 @@ func plan(k: String, at: Vector2) -> bool:
 			wiggle["flasks"] = 0.4
 		return false
 	stamina -= cost(k)
-	if not k in ["move", "wait"] and not s.get("keeps guard", false):
+	if not k in ["move", "steer", "wait"] and not s.get("keeps guard", false):
 		guard = false
-	if not k in ["move", "wait"]:
+	if not k in ["move", "steer", "wait"]:
 		hero.crouch = false
 	if casts_left(k) > 0:
 		casts[item_key(h) + ":" + k.split(":")[1]] = casts_left(k) - 1
@@ -757,6 +764,7 @@ func step() -> void:
 		var back := int(Acts.HERO["guard_back" if guard else "stamina_back"])
 		stamina = mini(stamina + back, int(Acts.HERO["stamina"]))
 	# A walk stops when an enemy starts an attack: you choose again.
+	foe_started = foe_starts
 	if walking and foe_starts and String(hero.cur.get("k", "")) == "move":
 		hero.cur = {}
 	_look()

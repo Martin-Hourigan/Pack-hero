@@ -74,13 +74,16 @@ func _tools(d: Duel) -> void:
 			col = Pal.DIM.darkened(0.45)
 		var r: Rect2 = b[0]
 		r.position.x += _wig(d, id)
-		_button(r, b[2], col, picked, main.tool.split(":")[1].to_upper() if hand != "" and picked else "")
+		var under: String = main.tool.split(":")[1].to_upper() if hand != "" and picked else ""
+		if id == "move":
+			under = main.walk_name()
+		_button(r, b[2], col, picked, under)
 	for b in main.menu_buttons():
 		var id: String = b[1]
 		var sp := d.spec(id)
 		var no: bool = d.cost(id) > d.stamina or d.casts_left(id) == 0 \
 			or (sp.get("loaded", false) and not d.is_loaded(main.hand_of(id)))
-		_button(b[0], b[2], Pal.DIM.darkened(0.45) if no else Pal.INK, main.tool == id)
+		_button(b[0], b[2], Pal.DIM.darkened(0.45) if no else Pal.INK, main.tool == id or id == "walk:" + main.walk)
 	for b in main.toggle_buttons():
 		var id: String = b[1]
 		var on: bool = main.toggled(id) or (id == "lock" and main.picking and fmod(main.clock, 0.6) < 0.3)
