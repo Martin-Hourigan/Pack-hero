@@ -225,14 +225,14 @@ const ITEMS := {
 		"block": {"clip": "cm2_block", "block": 180.0, "cut": 0.5, "st": 0},
 	}},
 	"bow": {"name": "BOW", "hands": 2, "noise": 5, "key": "bow", "nodes": ["bow", "bow_string", "arrow"], "does": {
-		"arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "arrow", "st": 15},
-		"fire arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
-		"heavy shot": {"clip": "bow_heavy", "wind": 7, "swing": 1, "rec": 1, "shot": "heavy arrow", "st": 30},
+		"arrow": {"clip": "bow_shot", "wind": 7, "swing": 1, "rec": 3, "shot": "arrow", "st": 15},
+		"fire arrow": {"clip": "bow_shot", "wind": 7, "swing": 1, "rec": 3, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
+		"heavy shot": {"clip": "bow_heavy", "wind": 9, "swing": 1, "rec": 3, "shot": "heavy arrow", "st": 30},
 	}},
 	# The farthest reach: slower to draw, harder hits.
 	"greatbow": {"name": "GREATBOW", "hands": 2, "noise": 20, "key": "gb", "nodes": ["gb", "gb_string", "gb_arrow"], "does": {
-		"arrow": {"clip": "gb_shot", "wind": 7, "swing": 1, "rec": 1, "shot": "great arrow", "st": 25},
-		"heavy shot": {"clip": "gb_heavy", "wind": 9, "swing": 1, "rec": 2, "shot": "heavy great arrow", "st": 40},
+		"arrow": {"clip": "gb_shot", "wind": 9, "swing": 1, "rec": 3, "shot": "great arrow", "st": 25},
+		"heavy shot": {"clip": "gb_heavy", "wind": 11, "swing": 1, "rec": 4, "shot": "heavy great arrow", "st": 40},
 	}},
 	"crossbow": {"name": "CROSSBOW", "hands": 1, "noise": 15, "key": "xb", "nodes": ["xb", "xb_bolt"], "does": {
 		"bolt": {"clip": "xb_shot", "wind": 0, "swing": 1, "rec": 1, "shot": "bolt", "st": 10, "loaded": true},
@@ -251,9 +251,9 @@ const ITEMS := {
 	}},
 	"quarterstaff bow": {"name": "BOW", "hands": 2, "noise": 15, "key": "bow", "nodes": ["bow", "bow_string", "arrow"], "look": {"bow": "qs_bow"},
 		"trick": "quarterstaff", "does": {
-		"arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "arrow", "st": 15},
-		"fire arrow": {"clip": "bow_shot", "wind": 5, "swing": 1, "rec": 1, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
-		"heavy shot": {"clip": "bow_heavy", "wind": 7, "swing": 1, "rec": 1, "shot": "heavy arrow", "st": 30},
+		"arrow": {"clip": "bow_shot", "wind": 7, "swing": 1, "rec": 3, "shot": "arrow", "st": 15},
+		"fire arrow": {"clip": "bow_shot", "wind": 7, "swing": 1, "rec": 3, "shot": "fire arrow", "st": 15, "parts": {"arrow": "arrow_fire"}},
+		"heavy shot": {"clip": "bow_heavy", "wind": 9, "swing": 1, "rec": 3, "shot": "heavy arrow", "st": 30},
 	}},
 	"greatspear": {"name": "GREATSPEAR", "hands": 2, "noise": 30, "key": "gs", "nodes": ["gs", "gs_head"], "blade": "gs_head", "trick": "greatspear split", "does": {
 		"light": {"clip": "gs_light", "wind": 1, "swing": 2, "rec": 2, "live": [1, 2], "dmg": 35, "st": 20},

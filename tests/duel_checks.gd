@@ -506,6 +506,10 @@ func _rooms() -> void:
 
 ## Hiding: the cone, low walls, shrubs; enemies turn so far a step.
 func _hiding() -> void:
+	var box := Rect2(90, 6, 204, 204)
+	check(DuelHud.edge(Vector2(192, 108), Vector2(400, 108), box) == Vector2(294, 108)
+		and DuelHud.edge(Vector2(192, 108), Vector2(192, -50), box) == Vector2(192, 6),
+		"off the view: its mark sits on the edge toward it")
 	var m := {"area": Rect2(0, 0, 300, 200), "start": Vector2(40, 100),
 		"shrubs": [Rect2(100, 80, 32, 40)], "low walls": [Rect2(200, 60, 8, 80)],
 		"foes": [{"k": "soldier", "at": Vector2(250, 100), "a": PI}]}
@@ -796,7 +800,7 @@ func _gear() -> void:
 	# Fire burns for steps after.
 	d = _armed("bow", "bow", Vector2(60, 0))
 	d.plan("right:fire arrow", d.knight.pos)
-	for i in 8:
+	for i in 10:
 		d.step()
 	var after := d.knight.hp
 	check(d.knight.burns.has("fire"), "a fire arrow sets him burning")

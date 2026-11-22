@@ -7,6 +7,16 @@ extends Node2D
 var main = null
 
 const STEAL := Color("#6fb7a8")  # the stamina bar
+## An enemy off the view spotting the hero: a ! in a circle flips up at
+## the view's edge where it is (s to flip up, s it stays), then a dot
+## there while it's off the view and knows of him. PLACEHOLDER.
+const ALERT_FLIP := 0.12
+const ALERT_HOLD := 1.2
+const ALERT_IN := 6.0  # px in from the view's edge
+
+var known := {}  # the enemies that have spotted the hero
+var alerts := {}  # enemy -> msec its ! flipped up
+var known_in: Duel = null  # the fight they're from
 
 
 func _draw() -> void:
@@ -26,6 +36,7 @@ func _draw() -> void:
 	draw_rect(Rect2(r.position.x - 1, 0, 1, 216), Pal.DARK)
 	draw_rect(Rect2(r.end.x, 0, 1, 216), Pal.DARK)
 	_bars(d)
+	_alerts(d)
 	_tools(d)
 	if d.result != "":
 		_result(d)
@@ -55,6 +66,67 @@ func _bars(d: Duel) -> void:
 	for b in k.burns:
 		draw_rect(Rect2(380 - int(k.burns[b]) * 2, y, int(k.burns[b]) * 2, 1), Color(Acts.BURNS[b]["col"]))
 		y += 2
+
+
+## Each enemy off the view that knows of the hero: a dot on the view's
+## edge toward it, a ! in a circle when it's just spotted him.
+func _alerts(d: Duel) -> void:
+	var r: Rect2 = main.VIEW
+	var now := Time.get_ticks_msec()
+	var h: Vector2 = d.hero.pos - main.cam + r.position
+	if known_in != d:
+		# Whoever knows of him from the start doesn't flip up.
+		known_in = d
+		known.clear()
+		alerts.clear()
+		for f in d.foes:
+			if f.aware:
+				known[f] = true
+	for f in d.foes:
+		var p: Vector2 = f.pos - main.cam + r.position
+		var off := not r.has_point(p)
+		if not f.alive() or not f.aware:
+			known.erase(f)
+			alerts.erase(f)
+			continue
+		if not known.has(f):
+			known[f] = true
+			if off:
+				alerts[f] = now
+		if not off:
+			alerts.erase(f)
+			continue
+		var at := _px(edge(h, p, r.grow(-ALERT_IN)))
+		var age := (now - int(alerts.get(f, -100000))) / 1000.0
+		if age < ALERT_HOLD:
+			_alert(at, minf(age / ALERT_FLIP, 1.0))
+		else:
+			draw_rect(Rect2(at - Vector2(1, 1), Vector2(3, 3)), Pal.DANGER)
+
+
+## Where the line from c to p (outside r) leaves r.
+static func edge(c: Vector2, p: Vector2, r: Rect2) -> Vector2:
+	var v := p - c
+	var t := 1.0
+	for i in 2:
+		if v[i] > 0.0:
+			t = minf(t, (r.end[i] - c[i]) / v[i])
+		elif v[i] < 0.0:
+			t = minf(t, (r.position[i] - c[i]) / v[i])
+	return (c + v * maxf(t, 0.0)).clamp(r.position, r.end)
+
+
+## A ! in a circle at `at`, `up` of the way flipped up (squashed flat
+## at 0).
+func _alert(at: Vector2, up: float) -> void:
+	var rad := 5
+	for y in range(-rad, rad + 1):
+		var row := int(round(y * up))
+		var w := int(floor(sqrt((rad + 0.5) * (rad + 0.5) - y * y)))
+		draw_rect(Rect2(at.x - w, at.y + row, 2 * w + 1, 1), Pal.DANGER)
+	if up >= 1.0:
+		draw_rect(Rect2(at.x, at.y - 3, 1, 4), Pal.BG)
+		draw_rect(Rect2(at.x, at.y + 2, 1, 1), Pal.BG)
 
 
 func _wig(d: Duel, k: String) -> float:

@@ -398,6 +398,28 @@ after looking it stays there; pillars, shrubs and low walls don't stop
 sound; item noise: claymore, greatspear 30; greatbow 20; longsword,
 kite shield, pike, quarterstaff, crossbow 15; staff, bow 5; no armour yet.
 
+SPOTTED FROM OFF THE VIEW (2026-11-23)
+DECIDED (Martin): an enemy off the screen that spots you: a little ! in
+a circle flips up at the side, then a dot on the edge of the screen says
+where it is, while it knows of you.
+BUILT: DuelHud._alerts: the ! flips up on the view's edge on the line
+from the hero toward it, then a 3 px dot there; gone once it's on the
+view, dead, or doesn't know of him. Enemies that know of him from the
+start don't flip up.
+PLACEHOLDER: flips up in 0.12 s, stays 1.2 s; 6 px in from the edge;
+the danger orange; shows standing or crouching; an enemy on the view but
+out of sight (behind a wall) gets no mark; a dot, no arrow.
+
+BOW TIMING (2026-11-23)
+DECIDED (Martin): drawing a bow takes longer, and so does the end of the
+shot (not a cooldown), so you can't loose two arrows before the enemy
+knows of the first.
+BUILT: wind and recovery longer; the bow clips stretched to fit.
+PLACEHOLDER: bow and quarterstaff bow arrow / fire arrow wind 5 -> 7,
+rec 1 -> 3; heavy shot wind 7 -> 9, rec 1 -> 3; greatbow arrow wind
+7 -> 9, rec 1 -> 3; heavy shot wind 9 -> 11, rec 2 -> 4. Crossbow and
+staff unchanged.
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 
