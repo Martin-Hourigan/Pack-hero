@@ -21,6 +21,7 @@ func run() -> int:
 	_foes()
 	_ranges()
 	_rooms()
+	_stealth()
 	_whole()
 	return fails
 
@@ -662,7 +663,8 @@ func _hiding() -> void:
 	d.hero.pos = Vector2(230, 30)
 	e.pos = Vector2(250, 100)
 	d._hear(e, 150.0)
-	check(e.aware, "loud: it spots him")
+	check(e.inspect and e.rush and not e.aware, "loud: it goes over at its full walk, not spotting him")
+	e.rush = false
 	e.aware = false
 	e.heard = Vector2.INF
 	e.inspect = false
@@ -688,6 +690,111 @@ func _hiding() -> void:
 	_still(d, 1)
 	d.step()
 	check(is_equal_approx(absf(angle_difference(0.0, e.ang)), deg_to_rad(float(Acts.SOLDIER["turn"]))), "an enemy turns only so far a step", str(rad_to_deg(e.ang)))
+
+
+## Looking, going back, yelling, patrols, being sensed near, BACK ATTACKS.
+func _stealth() -> void:
+	# (The hero out of its sight, behind a closed door.)
+	var m := {"areas": [Rect2(0, 0, 300, 200), Rect2(400, 0, 200, 200)], "halls": [Rect2(300, 80, 100, 40)],
+		"doors": [{"rect": Rect2(340, 80, 8, 40)}], "start": Vector2(500, 100),
+		"foes": [{"k": "soldier", "at": Vector2(250, 100), "a": PI}]}
+	var d := Duel.new(1, Acts.HANDS, m)
+	var e: Unit = d.foes[0]
+	e.heard = Vector2(250, 40)
+	for i in 3:
+		_still(d, 1)
+		d.step()
+	check(absf(angle_difference(e.ang, -PI / 2.0)) < 0.05 and e.pos == e.post and not e.aware, "a low sound: it turns to it, where it stands", str(rad_to_deg(e.ang)))
+	for i in Acts.LOOK_STEPS + 3:
+		_still(d, 1)
+		d.step()
+	check(e.heard == Vector2.INF and absf(angle_difference(e.ang, PI)) < 0.05, "it looks a while, then turns back to how it stood", str(rad_to_deg(e.ang)))
+	e.heard = Vector2(200, 100)
+	e.inspect = true
+	_still(d, 1)
+	d.step()
+	check(is_equal_approx(e.pos.distance_to(e.post), float(Acts.SOLDIER["walk"]) * Acts.CALM_WALK), "a medium sound: it walks over at half its walk", str(e.pos))
+	e.rush = true
+	var p0 := e.pos
+	_still(d, 1)
+	d.step()
+	check(is_equal_approx(e.pos.distance_to(p0), float(Acts.SOLDIER["walk"])), "loud: at its full walk", str(e.pos - p0))
+	for i in 60:
+		_still(d, 1)
+		d.step()
+	check(e.pos.distance_to(e.post) < 0.5 and not e.aware, "having looked, it goes back to its post", str(e.pos))
+	# Yelling: when hit before it's spotted him, every enemy near enough
+	# that hears it knows; not through a closed door.
+	m = {"areas": [Rect2(0, 0, 300, 200), Rect2(400, 0, 200, 200)], "halls": [Rect2(300, 80, 100, 40)],
+		"doors": [{"rect": Rect2(340, 80, 8, 40)}], "start": Vector2(30, 100),
+		"foes": [{"k": "soldier", "at": Vector2(250, 100)}, {"k": "soldier", "at": Vector2(250, 170)},
+			{"k": "soldier", "at": Vector2(410, 100)}, {"k": "soldier", "at": Vector2(30, 180)}]}
+	d = Duel.new(1, Acts.HANDS, m)
+	d._hurt(d.foes[0], d.hero, 1)
+	check(d.foes[0].aware and d.foes[1].aware, "hit from hiding, it yells: the one nearby knows")
+	check(not d.foes[2].aware, "not through a closed door")
+	check(not d.foes[3].aware, "not past the yell's reach")
+	d = Duel.new(1, Acts.HANDS, m)
+	d._hurt(d.foes[0], d.hero, 1000)
+	check(not d.foes[1].aware, "killed at once: no yell")
+	# A patrol: round its points, waiting at each.
+	m = {"area": Rect2(0, 0, 300, 200), "start": Vector2(30, 100),
+		"foes": [{"k": "soldier", "at": Vector2(250, 160), "a": -PI / 2.0, "patrol": [Vector2(250, 160), Vector2(250, 100)]}]}
+	d = Duel.new(1, Acts.HANDS, m)
+	e = d.foes[0]
+	var top := 999.0
+	for i in 50:
+		_still(d, 1)
+		d.step()
+		top = minf(top, e.pos.y)
+	check(is_equal_approx(top, 100.0) and e.pos.y > 101.0 and not e.aware, "it walks its patrol and back", str(top, " ", e.pos))
+	# Near, all round.
+	m = {"area": Rect2(0, 0, 300, 200), "start": Vector2(30, 100),
+		"foes": [{"k": "soldier", "at": Vector2(150, 100), "a": 0.0}]}
+	d = Duel.new(1, Acts.HANDS, m)
+	e = d.foes[0]
+	d.hero.pos = Vector2(130, 100)
+	check(d.spots(e), "standing near behind it: noticed")
+	d.toggle_crouch()
+	check(not d.spots(e), "crouching: not")
+	d.hero.pos = Vector2(100, 100)
+	d.toggle_crouch()
+	check(not d.spots(e), "further back, standing: not")
+	# BACK ATTACK.
+	var quiet := {"left": ["staff", "bow"], "right": ["longsword", "claymore"]}
+	for t in [["longsword", 16.0, 3.0], ["dagger", 11.0, 5.0]]:
+		var kit := {"left": ["staff", "bow"], "right": [t[0], "claymore"]}
+		d = Duel.new(1, kit, m)
+		e = d.foes[0]
+		e.hp = 1000
+		d.hero.pos = e.pos - Vector2(t[1], 0)
+		d.toggle_crouch()
+		check(d.from_behind(e) and d.plan("right:light", e.pos) and d.hero.crouch, "close behind it, crouching: a LIGHT keeps you crouched (%s)" % t[0])
+		var dmg := int(Acts.ITEMS[t[0]]["does"]["light"]["dmg"])
+		_until_free(d)
+		check(1000 - e.hp == roundi(dmg * t[2]), "a BACK ATTACK: %d times the damage (%s)" % [t[2], t[0]], str(1000 - e.hp))
+		check(not e.aware or e.hp < 1000, "(it lands before it notices)")
+	d = Duel.new(1, quiet, m)
+	e = d.foes[0]
+	e.hp = 1000
+	d.hero.pos = e.pos - Vector2(16, 0)
+	d.plan("right:light", e.pos)
+	_until_free(d)
+	check(1000 - e.hp == int(Acts.ITEMS["longsword"]["does"]["light"]["dmg"]) and e.aware, "standing, it notices first: an ordinary hit", str(1000 - e.hp))
+	d = Duel.new(1, quiet, m)
+	e = d.foes[0]
+	e.hp = 1000
+	d.hero.pos = e.pos - Vector2(16, 0)
+	d.toggle_crouch()
+	d.plan("right:light", e.pos)
+	var stopped := 0
+	for i in 20:
+		d.step()
+		if String(e.cur.get("k", "")) == "stagger":
+			stopped += 1
+	check(stopped >= int(Acts.BACK_ATTACK["hold"]), "a BACK ATTACK holds it still", str(stopped))
+	var k := d.add_foe("knight", d.hero.pos + Vector2(20, 0), 0.0)
+	check(not d.from_behind(k), "no BACK ATTACK on the knight")
 
 
 ## Whole fights, the hero pressing light attacks: they end.

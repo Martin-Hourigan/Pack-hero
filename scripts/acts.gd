@@ -78,7 +78,8 @@ const ARENA := Rect2(12, 12, 360, 158)
 ## (shots go over). Both: see LOW_SHADOW. LIGHT: dark: true for a map
 ## lit only by its lights (else it's all lit); sun: an Acts.SUNS key
 ## instead (outside); lights: {k (Acts.LIGHTS), at}. foes: {k (Acts.FOES), at, a (facing; left if
-## not said)}. All PLACEHOLDER.
+## not said), patrol (points it walks round, waiting at each; none: it
+## stands at its post)}. All PLACEHOLDER.
 const MAP := {
 	"areas": [Rect2(0, 0, 360, 200), Rect2(420, 0, 420, 260), Rect2(400, 320, 460, 320), Rect2(0, 380, 360, 200)],
 	"halls": [Rect2(360, 80, 60, 40), Rect2(608, 260, 40, 60), Rect2(360, 460, 40, 40)],
@@ -99,16 +100,37 @@ const MAP := {
 	"foes": [{"k": "soldier", "at": Vector2(250, 70)}, {"k": "soldier", "at": Vector2(270, 140)},
 		{"k": "soldier", "at": Vector2(720, 80)}, {"k": "spearman", "at": Vector2(740, 200)},
 		{"k": "archer", "at": Vector2(810, 140)},
-		{"k": "soldier", "at": Vector2(600, 400)}, {"k": "soldier", "at": Vector2(640, 570)},
+		{"k": "soldier", "at": Vector2(600, 400), "patrol": [Vector2(600, 400), Vector2(460, 400), Vector2(460, 520)]},
+		{"k": "soldier", "at": Vector2(640, 570), "patrol": [Vector2(640, 570), Vector2(480, 600)]},
 		{"k": "spearman", "at": Vector2(780, 550)}, {"k": "archer", "at": Vector2(820, 360)},
 		{"k": "knight", "at": Vector2(260, 480), "a": 0.0}],
 }
 ## An enemy comes for the hero once it sees him within this (px; or once
 ## hit). PLACEHOLDER.
-const AGGRO := 160.0
-## An enemy sees only within this cone ahead of it (degrees across).
+const AGGRO := 200.0
+## An enemy sees only within this cone ahead of it (degrees across)...
 ## PLACEHOLDER.
-const CONE := 120.0
+const CONE := 180.0
+## ...but notices him this near (px) all round, unless he's crouching.
+## PLACEHOLDER.
+const NEAR_SENSE := 24.0
+## An enemy that spots him, or is hit before it has, yells: every enemy
+## within this (px; not through walls or closed doors) knows where he is
+## too. PLACEHOLDER.
+const YELL := 160.0
+## Walking its patrol, back to its post, or going to look at a medium
+## sound: this much of its walk. PLACEHOLDER.
+const CALM_WALK := 0.5
+## Steps an enemy looks where it heard him (there, or turned to it) before
+## going back to its post or patrol. PLACEHOLDER.
+const LOOK_STEPS := 6
+## Steps an enemy waits at each point of its patrol. PLACEHOLDER.
+const PATROL_WAIT := 4
+## BACK ATTACK: a melee LIGHT landing on an enemy that hasn't noticed him,
+## from within `reach` px and `behind` degrees of straight behind it, does
+## `times` the damage (or the attack's "back") and holds both for `hold`
+## steps. Started crouching, he stays crouched. PLACEHOLDER.
+const BACK_ATTACK := {"reach": 16.0, "behind": 45.0, "times": 3.0, "hold": 4}
 ## From in a shrub you see only this far (px). PLACEHOLDER.
 const SHRUB_SIGHT := 40.0
 ## Standing, you see over shrubs and low walls, but someone crouching (or
@@ -118,7 +140,8 @@ const LOW_SHADOW := 8.0
 ## SOUND: the hero doing anything but waiting makes noise (his items' noise
 ## added up, halved crouching) that reaches that many px. The outer
 ## NOISE_BAND px of it are low (an enemy turns to it), the next NOISE_BAND
-## in medium (it goes to look), anything nearer loud (it spots him).
+## in medium (it walks over to look, at CALM_WALK), anything nearer loud
+## (it goes over at its full walk). Hearing never spots him: only sight.
 ## Walls and closed doors stop it. PLACEHOLDER.
 const NOISE_BAND := 30.0
 ## Line of sight is worked out in squares this many px across.
@@ -216,7 +239,7 @@ const HERO := {
 ## changes it); the first slot of each is held.
 const HANDS := {"left": ["kite shield", "staff"], "right": ["longsword", "claymore"]}
 ## The order the gear screen goes through.
-const GEAR := ["longsword", "kite shield", "crossbow", "staff", "claymore", "bow", "greatbow", "quarterstaff", "greatspear", "pike"]
+const GEAR := ["longsword", "kite shield", "crossbow", "staff", "claymore", "bow", "greatbow", "quarterstaff", "greatspear", "pike", "dagger"]
 ## Steps it takes to SWAP a hand to its other item, take an item in TWO
 ## HANDS or back to ONE HAND, and TRANSFORM a trick weapon.
 const CHANGE := {"swap": 1, "two hands": 1, "one hand": 1, "transform": 1}
@@ -232,7 +255,8 @@ const CHANGE := {"swap": 1, "two hands": 1, "one hand": 1, "transform": 1}
 ## An attack: clip, wind, swing, rec (steps), live (swing steps that hit),
 ## dmg, st (stamina), lunge (px a swing step). shot: SHOTS entry, fired on
 ## the first swing step. casts: a limit (spells). loaded: needs loading
-## first (a crossbow). reload: steps. block: arc (degrees in front where
+## first (a crossbow). back: a BACK ATTACK's damage times (not
+## Acts.BACK_ATTACK's). reload: steps. block: arc (degrees in front where
 ## hits are stopped); cut: how much of a stopped hit still hurts. Anything
 ## but walking or waiting drops GUARD, unless "keeps guard" (and then,
 ## with GUARD up, it doesn't lunge).
@@ -308,6 +332,11 @@ const ITEMS := {
 		"light": {"clip": "ss_light", "wind": 1, "swing": 2, "rec": 1, "live": [1, 2], "lunge": 2.0, "dmg": 18, "st": 12},
 		"heavy": {"clip": "ss_heavy", "wind": 2, "swing": 3, "rec": 2, "live": [1, 2, 3], "dmg": 35, "st": 25},
 	}},
+	# Quiet and quick; its BACK ATTACK does the most.
+	"dagger": {"name": "DAGGER", "hands": 1, "noise": 5, "key": "dg", "nodes": ["dg_hilt", "dg_blade"], "blade": "dg_blade", "does": {
+		"light": {"clip": "dg_light", "wind": 1, "swing": 1, "rec": 1, "live": [1], "lunge": 2.0, "dmg": 12, "st": 10, "back": 5.0},
+		"heavy": {"clip": "dg_heavy", "wind": 2, "swing": 2, "rec": 2, "live": [1, 2], "lunge": 2.0, "dmg": 24, "st": 20},
+	}},
 }
 
 ## What flies: speed (px a step), range (px it goes before it's gone), r
@@ -339,7 +368,7 @@ const BURNS := {
 ## low: true for one that's always low, as if crouching (a dog, a rat).
 ## An attack's `after`: steps it waits once it's done.
 const KNIGHT := {
-	"ai": "knight", "attacks": ["sweep", "backhand", "overhead"],
+	"ai": "knight", "attacks": ["sweep", "backhand", "overhead"], "no back attack": true,
 	"walk": 3.0,  # px a step
 	"reach": 40.0,  # px from him to the hero: he attacks from here
 	"turn": 25.0,  # degrees he turns at most in a step

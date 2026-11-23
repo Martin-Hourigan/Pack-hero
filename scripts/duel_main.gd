@@ -446,8 +446,8 @@ func gear_buttons() -> Array:
 			out.append([Rect2(x, 52 + (CELL + 4) * i, CELL, CELL), "slot:" + h + str(i), th])
 	for i in Acts.GEAR.size():
 		var th: String = Acts.GEAR[i]
-		var x := 192.0 - 2.5 * (CELL + 2) + (CELL + 2) * (i % 5)
-		out.append([Rect2(x, 52 + (CELL + 4) * (i / 5), CELL, CELL), "item:" + th, th])
+		var x := 192.0 - 3.0 * (CELL + 2) + (CELL + 2) * (i % 6)
+		out.append([Rect2(x, 52 + (CELL + 4) * (i / 6), CELL, CELL), "item:" + th, th])
 	out.append([Rect2(132, 150, 120, 20), "fight", "FIGHT" if touch else "SPACE  FIGHT"])
 	out.append([Rect2(358, 188, 22, 20), "back", "<"])
 	return out

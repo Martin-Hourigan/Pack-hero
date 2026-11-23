@@ -475,6 +475,45 @@ PLACEHOLDER ("fine for now"): about 4 px in all: longsword 1 px a swing
 step (4), claymore 1 (5), quarterstaff / greatspear / pike / shortsword
 2 (4).
 
+SOUND, YELLS, PATROLS, SIGHT, BACK ATTACKS, DAGGER (2026-11-23)
+DECIDED (Martin):
+- Hearing never spots you; only sight does. A low sound: it turns to
+  where it was. Medium: it walks over at half speed to look. Loud: it
+  goes over at full speed. Finding nothing, it goes back to its post or
+  patrol.
+- An enemy yells when it spots you, or when you hit it from hiding; the
+  yell reaches further than other sound and alerts anyone who hears it,
+  so a fight in a room pulls in most of the room.
+- Patrols: some enemies walk a route; others stand (a guard at a fire).
+- Enemies see further; walking round to their back mustn't be trivial.
+- BACK ATTACKS, and you can be heard first: heavy gear (and later armour)
+  gets you caught. A DAGGER.
+BUILT:
+- Sound as above. After reaching the spot (or just turning, for a low
+  sound) it looks LOOK_STEPS, then walks back at half speed.
+- Yell: hears it within YELL px, not through walls or closed doors; those
+  that hear it come for you (and get the "!"). They don't yell on in turn.
+  One killed in a single blow doesn't yell.
+- Patrol: a list of points on the map's foe, walked round at half speed,
+  waiting PATROL_WAIT at each. The test map: the two soldiers in the big
+  lower-right area patrol; the rest stand.
+- Sight: a wider cone, further, and a sense all round when you're near
+  and standing (not crouching).
+- BACK ATTACK: judged when a melee LIGHT lands: the enemy hasn't noticed
+  you, you're within reach px and behind degrees of straight behind it.
+  More damage; both of you held still (his blade in it) for hold steps.
+  Started crouching close behind an unnoticing enemy, you stay crouched
+  (quieter). Not on the knight. The held pose is the light's last swing
+  frame: PLACEHOLDER art.
+- DAGGER: one-handed, quiet, fastest light; its BACK ATTACK does more.
+  Its art is a short shortsword; its clips are the shortsword's, quicker.
+  On the gear screen (now 6 across).
+PLACEHOLDER: AGGRO 160 -> 200, CONE 120 -> 180 degrees, NEAR_SENSE 24,
+YELL 160, CALM_WALK half, LOOK_STEPS 6, PATROL_WAIT 4; BACK_ATTACK reach
+16, behind 45 degrees, 3x damage (dagger 5x), hold 4. Dagger: noise 5;
+light wind 1 / swing 1 / rec 1, 12 dmg, 10 st, 2 px forward; heavy 2/2/2,
+24 dmg, 20 st, 2 px forward each swing step. Patrol routes.
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 

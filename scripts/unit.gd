@@ -31,6 +31,13 @@ var last := ""  # its last attack
 var aware := false  # an enemy that has seen the hero (it acts once it has)
 var heard := Vector2.INF  # where an enemy last heard the hero (INF: never)
 var inspect := false  # going to look where it heard him
+var rush := false  # (going there at its full walk: it was loud)
+var looking := 0  # steps it's looked where it heard him
+var post := Vector2.ZERO  # an enemy: where it stands...
+var post_ang := 0.0  # ...and faces when it's nothing else to do
+var patrol: Array = []  # points it walks round instead (none: it stands)
+var patrol_i := 0  # the point it's going to
+var waited := 0  # steps it's waited at that point
 var crouch := false  # CROUCH: low (slower walking; hidden behind low walls and shrubs)
 var sketch := {}  # an enemy: {pos, ang, pose} where the hero last saw it ({}: none)
 

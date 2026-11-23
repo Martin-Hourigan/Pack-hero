@@ -7,8 +7,9 @@ extends RefCounted
 ## door opens it (a step); the boss door shuts behind him in the boss area.
 ## The hero sees what a straight line from him reaches (sight), and
 ## remembers what he's seen (memory, kept when he dies); an enemy comes for
-## him once it sees him within Acts.AGGRO (or is hit), finding its way
-## round walls (paths). Walking somewhere out of a straight line finds the
+## him once it sees him within Acts.AGGRO (or is hit, or hears another
+## yell), finding its way round walls (paths); until then it stands at its
+## post or walks its patrol, and goes to look at what it hears. Walking somewhere out of a straight line finds the
 ## way too. Time goes in steps, everyone together. Everyone is a puppet
 ## (RigArt): an attack plays a clip, one frame a step, and the blade hits
 ## wherever the puppet's blade really is, swept from where it was at the
@@ -126,7 +127,9 @@ func _init(seed_ := 0, gear_ := Acts.HANDS, map_: Dictionary = KNIGHT_ROOM, firs
 	hero.pos = map["starts"][first] if map.has("starts") else map["start"]
 	hero.pose = rest(hero)
 	for f in map.get("foes", []):
-		add_foe(String(f["k"]), f["at"], float(f.get("a", PI))).aware = f.get("aware", false)
+		var e := add_foe(String(f["k"]), f["at"], float(f.get("a", PI)))
+		e.aware = f.get("aware", false)
+		e.patrol = f.get("patrol", [])
 	fog_size = Vector2i(ceili(area.size.x / Acts.FOG), ceili(area.size.y / Acts.FOG))
 	if not memory.has(room_i) or memory[room_i].size() != fog_size.x * fog_size.y:
 		var m := PackedByteArray()
@@ -150,6 +153,8 @@ func add_foe(k: String, at: Vector2, a: float) -> Unit:
 	var u := _add(k, at, a)
 	u.side = "enemy"
 	u.aware = false
+	u.post = at
+	u.post_ang = a
 	foes.append(u)
 	if k == "knight" and knight == null:
 		knight = u
@@ -564,7 +569,7 @@ func plan(k: String, at: Vector2) -> bool:
 	stamina -= cost(k)
 	if not k in ["move", "steer", "wait"] and not s.get("keeps guard", false):
 		guard = false
-	if not k in ["move", "steer", "wait"]:
+	if not k in ["move", "steer", "wait"] and not (k.ends_with(":light") and foes.any(from_behind)):
 		hero.crouch = false
 	if casts_left(k) > 0:
 		casts[item_key(h) + ":" + k.split(":")[1]] = casts_left(k) - 1
@@ -626,22 +631,48 @@ func _choose_archer(u: Unit) -> void:
 		start_attack(String(f["attacks"][0]), u)
 
 
-## An enemy that hasn't spotted the hero waits; having heard him, it turns
-## to where it heard him, and if it's going to look, walks there.
+## An enemy that hasn't spotted the hero: having heard him, it turns to
+## where it heard him (and if it's going to look, goes there) and looks
+## for Acts.LOOK_STEPS; then it's back to its patrol, or its post.
 func _idle(u: Unit) -> void:
-	if u.heard == Vector2.INF:
+	var calm := float(foe_data(u)["walk"]) * Acts.CALM_WALK
+	if u.heard != Vector2.INF:
+		var there := u.pos.distance_to(u.heard) <= 2.0
+		if u.inspect and not there and _stroll(u, u.heard, float(foe_data(u)["walk"]) if u.rush else calm):
+			return
+		u.inspect = false
+		u.rush = false
+		u.looking += 1
+		if u.looking <= Acts.LOOK_STEPS:
+			u.cur = _act("wait", [{"ph": "wait", "face": u.ang if there else (u.heard - u.pos).angle()}])
+			return
+		u.heard = Vector2.INF
+		u.looking = 0
+	if not u.patrol.is_empty():
+		var to: Vector2 = u.patrol[u.patrol_i]
+		if u.pos.distance_to(to) > 0.5 and _stroll(u, to, calm):
+			return
+		u.waited += 1
+		if u.waited > Acts.PATROL_WAIT:
+			u.waited = 0
+			u.patrol_i = (u.patrol_i + 1) % u.patrol.size()
 		u.cur = _act("wait", [{"ph": "wait"}])
 		return
-	var there := u.pos.distance_to(u.heard) <= 2.0
-	if u.inspect and not there:
-		var way := route(u, u.heard)
-		if not way.is_empty():
-			var a := (Vector2(way[0]) - u.pos).angle()
-			var go := minf(float(foe_data(u)["walk"]), u.pos.distance_to(way[0]))
-			u.cur = _act("walk", [{"ph": "move", "to": u.pos + Vector2.from_angle(a) * go, "face": a}])
-			return
-	u.inspect = false
-	u.cur = _act("wait", [{"ph": "wait", "face": u.ang if there else (u.heard - u.pos).angle()}])
+	if u.pos.distance_to(u.post) > 0.5 and _stroll(u, u.post, calm):
+		return
+	u.cur = _act("wait", [{"ph": "wait", "face": u.post_ang}])
+
+
+## u walks a step (at most `go` px) toward `to`, the way round if it must;
+## false if there's no way.
+func _stroll(u: Unit, to: Vector2, go: float) -> bool:
+	var way := route(u, to)
+	if way.is_empty():
+		return false
+	var a := (Vector2(way[0]) - u.pos).angle()
+	go = minf(go, u.pos.distance_to(way[0]))
+	u.cur = _act("walk", [{"ph": "move", "to": u.pos + Vector2.from_angle(a) * go, "face": a}])
+	return true
 
 
 ## u walks a step toward the hero, at most `go` px (away, if negative),
@@ -700,7 +731,7 @@ func step() -> void:
 		if u.calm >= int(foe_data(u)["calm"]):
 			u.taken = 0
 		if not u.aware and spots(u):
-			u.aware = true
+			_alarm(u)
 		if not u.aware:
 			_hear(u, loud)
 		if u.idle():
@@ -752,6 +783,8 @@ func step() -> void:
 				var through := roundi(int(st["dmg"]) * float(guarding(v).get("cut", 0.0)))
 				if through > 0:
 					_chip(v, through)
+			elif u == hero and String(u.cur.get("k", "")).ends_with(":light") and from_behind(v):
+				_back_attack(v, int(st["dmg"]))
 			else:
 				_hurt(v, u, int(st["dmg"]))
 	for u in units:
@@ -1075,19 +1108,31 @@ static func heard(n: float, d: float) -> String:
 
 
 ## Enemy u hearing the hero make noise n: low, it turns to him; medium, it
-## goes to look; loud, it spots him. Not through walls or closed doors.
+## walks over to look; loud, it goes over at its full walk. Not through
+## walls or closed doors.
 func _hear(u: Unit, n: float) -> void:
 	var how := heard(n, u.pos.distance_to(hero.pos))
 	if how == "" or not los(u.pos, hero.pos, SOUND_STOPS):
 		return
-	if how == "loud":
-		u.aware = true
-		return
 	u.heard = hero.pos
-	if how == "medium":
+	u.looking = 0
+	if how != "low":
 		u.inspect = true
-	if String(u.cur.get("k", "")) == "wait":
+	if how == "loud":
+		u.rush = true
+	if String(u.cur.get("k", "")) in ["wait", "walk"]:
 		u.cur = {}  # it turns now
+
+
+## Enemy u notices the hero (spotted, or hit) and yells: every enemy within
+## Acts.YELL of it that hears it notices him too.
+func _alarm(u: Unit) -> void:
+	if u.aware:
+		return
+	u.aware = true
+	for f in foes:
+		if f != u and f.alive() and not f.aware and f.pos.distance_to(u.pos) <= Acts.YELL and los(u.pos, f.pos, SOUND_STOPS):
+			f.aware = true
 
 
 ## HIDDEN: the hero is hidden from an enemy that hasn't spotted him yet.
@@ -1096,12 +1141,23 @@ func hidden_from(u: Unit) -> bool:
 
 
 ## Whether enemy u spots the hero: within aggro range, in the cone ahead
-## of it, and it can see him.
+## of it (or, not crouching, near it), and it can see him.
 func spots(u: Unit) -> bool:
 	var v := hero.pos - u.pos
-	if v.length() > minf(Acts.AGGRO, seen_within(hero.pos, INF)) or rad_to_deg(absf(angle_difference(u.ang, v.angle()))) > Acts.CONE / 2.0:
+	var near := v.length() <= Acts.NEAR_SENSE and not hero.crouch
+	if v.length() > minf(Acts.AGGRO, seen_within(hero.pos, INF)) or (not near and rad_to_deg(absf(angle_difference(u.ang, v.angle()))) > Acts.CONE / 2.0):
 		return false
 	return sees_body(u, hero)
+
+
+## BACK ATTACK: whether the hero is where one on enemy v would be (it
+## hasn't noticed him; he's close behind it).
+func from_behind(v: Unit) -> bool:
+	if v.side != "enemy" or not v.alive() or v.aware or foe_data(v).get("no back attack", false):
+		return false
+	var to := hero.pos - v.pos
+	return to.length() <= float(Acts.BACK_ATTACK["reach"]) \
+		and rad_to_deg(absf(angle_difference(v.ang, to.angle()))) >= 180.0 - float(Acts.BACK_ATTACK["behind"])
 
 
 ## Whether the hero can see enemy u now.
@@ -1362,6 +1418,27 @@ func _keep_apart() -> void:
 				return
 
 
+## The hero's LIGHT lands on v from behind: more damage, and both hold
+## still (his blade in it) for Acts.BACK_ATTACK's hold.
+func _back_attack(v: Unit, d: int) -> void:
+	var n := int(Acts.BACK_ATTACK["hold"])
+	var times := float(spec(String(hero.cur["k"])).get("back", Acts.BACK_ATTACK["times"]))
+	var b := int(hero.cur["b"])
+	var held: Dictionary = hero.cur["steps"][b].duplicate()
+	for key in ["live", "dmg", "fwd", "shoot", "face"]:
+		held.erase(key)
+	held["ph"] = "rec"
+	for i in n:
+		hero.cur["steps"].insert(b + 1, held.duplicate())
+	_hurt(v, hero, roundi(d * times))
+	if v.alive():
+		var steps := []
+		for i in n + 1:
+			steps.append({"ph": "stagger"})
+		v.cur = _act("stagger", steps)
+		v.cur["b"] = -1  # (counted up at the end of this step)
+
+
 func _hurt(v: Unit, by: Unit, d: int) -> void:
 	v.hp -= d
 	v.flash = 1.0
@@ -1369,7 +1446,7 @@ func _hurt(v: Unit, by: Unit, d: int) -> void:
 	_sparks(v.pos, 6, Pal.DANGER if v == hero else Pal.INK)
 	shake_amt = maxf(shake_amt, 2.0 if v == hero else 1.0)
 	if v != hero and v.alive():
-		v.aware = true
+		_alarm(v)
 		v.calm = 0
 		v.taken += d
 		if v.taken >= int(foe_data(v)["poise"]):
