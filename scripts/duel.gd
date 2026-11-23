@@ -73,6 +73,8 @@ const CROUCH_SIGHT_STOPS := SIGHT_STOPS | (1 << SHRUB) | (1 << LOW)
 const WALK_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR) | (1 << LOW)
 const SHOT_STOPS := (1 << WALL) | (1 << PILLAR) | (1 << DOOR)
 const SOUND_STOPS := (1 << WALL) | (1 << DOOR)
+const LANTERNS_NEAR := 320.0
+const LOOK_FAR := 216.0  # px: the view's size; sight goes no further
 const SIDES := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 var map := {}  # Acts.MAP (or a room like KNIGHT_ROOM: one area)
@@ -1207,13 +1209,14 @@ func _fixed_light() -> void:
 		_shine(fixed_light, l["at"], Acts.LIGHTS[l["k"]])
 
 
-## Light now: the fixed light and every enemy's lantern.
+## Light now: the fixed light and every enemy's lantern (only near the
+## hero, where it can matter: LANTERNS_NEAR px).
 func _light() -> void:
 	if fixed_light.size() != fog_size.x * fog_size.y:
 		_fixed_light()
 	light = fixed_light.duplicate()
 	for f in foes:
-		if f.alive():
+		if f.alive() and f.pos.distance_to(hero.pos) <= LANTERNS_NEAR:
 			_shine(light, f.pos, Acts.LIGHTS["lantern"])
 
 
@@ -1248,7 +1251,7 @@ func can_see(p: Vector2) -> bool:
 ## up to the first one sight stops at, which is seen too, as is anything
 ## sight stops at next to a square seen; a shrub seen is seen whole); from
 ## in a shrub, only so far (and out through it); crouching, not past shrubs
-## and low walls. They're remembered.
+## and low walls; no further than LOOK_FAR. They're remembered.
 func _look() -> void:
 	var n := fog_size.x * fog_size.y
 	sight.resize(n)
@@ -1258,13 +1261,17 @@ func _look() -> void:
 	var mine := shrub_at(hero.pos)
 	var far := Acts.SHRUB_SIGHT / Acts.FOG if mine.has_area() else INF
 	var stops := CROUCH_SIGHT_STOPS if hero.crouch else SIGHT_STOPS
+	# Only as far as the view could show (it never leaves the hero).
+	var k := ceili(LOOK_FAR / Acts.FOG)
+	var lo := Vector2i(maxi(h.x - k, 0), maxi(h.y - k, 0))
+	var hi := Vector2i(mini(h.x + k, fog_size.x - 1), mini(h.y + k, fog_size.y - 1))
 	var ends: Array = []
-	for x in fog_size.x:
-		ends.append(Vector2i(x, 0))
-		ends.append(Vector2i(x, fog_size.y - 1))
-	for y in fog_size.y:
-		ends.append(Vector2i(0, y))
-		ends.append(Vector2i(fog_size.x - 1, y))
+	for x in range(lo.x, hi.x + 1):
+		ends.append(Vector2i(x, lo.y))
+		ends.append(Vector2i(x, hi.y))
+	for y in range(lo.y, hi.y + 1):
+		ends.append(Vector2i(lo.x, y))
+		ends.append(Vector2i(hi.x, y))
 	for e in ends:
 		# A line of squares (Bresenham) from h to e.
 		var x := h.x

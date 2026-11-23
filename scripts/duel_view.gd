@@ -33,11 +33,14 @@ const WOOD := Color("#5a4632")
 const DARK_LINE := Color("#a29d92")
 const DARK_FILL := Color("#070606")
 
-var _fog_tex: ImageTexture
+var _sight_tex: ImageTexture
+var _seen_tex: ImageTexture
 var _light_tex: ImageTexture
-var _fog_key := []  # what the fog and light textures were made from
-var _ground := Node2D.new()  # the room, drawn under the shade
-var _shade := Node2D.new()  # the fog and the light, drawn under the rest
+var _fog_key := []  # what the fog, light and walls were drawn from
+var _ground_key := []  # what the room was drawn from
+var _ground := Node2D.new()  # the room, drawn under the shade (only when a door changes)
+var _shade := Node2D.new()  # the fog and the light, drawn under the rest (each step)
+var _wall_lines := Node2D.new()  # the walls' edges, over the shade (each step)
 var _dark := Node2D.new()  # who's in the dark, as outlines over them
 var _edges: Array = []  # the walls' edges: [Rect2, square x, square y]
 var _edges_of: Duel = null
@@ -45,11 +48,12 @@ var _edges_of: Duel = null
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	for c in [_ground, _shade]:
+	for c in [_ground, _shade, _wall_lines]:
 		c.show_behind_parent = true
 		add_child(c)
 	_ground.draw.connect(func(): if _drawing(): _room(_ground, main.duel))
 	_shade.draw.connect(func(): if _drawing(): _fog(main.duel))
+	_wall_lines.draw.connect(func(): if _drawing(): _walls(main.duel))
 	var m := ShaderMaterial.new()
 	m.shader = preload("res://shaders/shade.gdshader")
 	m.set_shader_parameter("greyed", 0.65)
@@ -65,8 +69,23 @@ func _ready() -> void:
 
 
 func _process(_dt: float) -> void:
-	_ground.queue_redraw()
-	_shade.queue_redraw()
+	for c in [_ground, _shade, _wall_lines]:
+		c.visible = _drawing()
+	if not _drawing():
+		_ground_key = []
+		_fog_key = []
+		return
+	var d: Duel = main.duel
+	var gk := [d, d.doors.map(func(dr): return dr["open"])]
+	if gk != _ground_key:
+		_ground_key = gk
+		_ground.queue_redraw()
+	var fk := [d, d.room_i, d.step_n]
+	if fk != _fog_key:
+		_fog_key = fk
+		_fog_textures(d)
+		_shade.queue_redraw()
+		_wall_lines.queue_redraw()
 	_dark.queue_redraw()
 
 
@@ -78,7 +97,7 @@ func _draw() -> void:
 	if main.mode != "duel" or main.duel == null:
 		return
 	var d: Duel = main.duel
-	_walls(d)
+	_flames(d)
 	_ghosts(d)
 	_preview(d)
 	_sketches(d)
@@ -124,51 +143,55 @@ func _room(c: CanvasItem, d: Duel) -> void:
 		var r: Rect2 = dr["rect"]
 		c.draw_rect(r, Pal.DANGER_DIM if dr["boss"] else Pal.DARK)
 		c.draw_rect(r.grow(-0.5), Pal.DANGER if dr["boss"] else Pal.DIM, false)
+
+
+## The torches and the campfire (where seen, now or before).
+func _flames(d: Duel) -> void:
 	var flick := int(main.clock * 8.0) % 2
 	for l in d.lights:
 		var at := _px(l["at"])
+		var q := d.square(l["at"])
+		if d.fog_at(q.x, q.y) == 0:
+			continue
 		if l["k"] == "campfire":
 			for o in [Vector2(-4, 0), Vector2(4, 0), Vector2(0, -4), Vector2(0, 4), Vector2(-3, -3), Vector2(3, -3), Vector2(-3, 3), Vector2(3, 3)]:
-				c.draw_rect(Rect2(at + o, Vector2.ONE), Pal.DIM)
-			c.draw_rect(Rect2(at.x - 2, at.y, 5, 1), WOOD)
-			c.draw_rect(Rect2(at.x, at.y - 2, 1, 5), WOOD)
-			c.draw_rect(Rect2(at.x - 1, at.y - 1, 3, 2), FLAME)
-			c.draw_rect(Rect2(at.x - flick, at.y - 2, 1, 2), FLAME_HOT)
+				draw_rect(Rect2(at + o, Vector2.ONE), Pal.DIM)
+			draw_rect(Rect2(at.x - 2, at.y, 5, 1), WOOD)
+			draw_rect(Rect2(at.x, at.y - 2, 1, 5), WOOD)
+			draw_rect(Rect2(at.x - 1, at.y - 1, 3, 2), FLAME)
+			draw_rect(Rect2(at.x - flick, at.y - 2, 1, 2), FLAME_HOT)
 		else:
-			c.draw_rect(Rect2(at.x, at.y, 1, 3), WOOD)
-			c.draw_rect(Rect2(at.x - 1, at.y - 2, 3, 2), FLAME)
-			c.draw_rect(Rect2(at.x, at.y - 2 - flick, 1, 1), FLAME_HOT)
+			draw_rect(Rect2(at.x, at.y, 1, 3), WOOD)
+			draw_rect(Rect2(at.x - 1, at.y - 2, 3, 2), FLAME)
+			draw_rect(Rect2(at.x, at.y - 2 - flick, 1, 1), FLAME_HOT)
 
 
 ## Never seen: blank. Seen before but not now: greyed. In sight: darker
 ## where it's dim or dark, dithered at the edges (shaders/shade.gdshader).
 func _fog(d: Duel) -> void:
-	var key := [d, d.room_i, d.step_n]
-	if key != _fog_key:
-		_fog_key = key
-		var n := d.fog_size
-		var fog := PackedByteArray()
-		fog.resize(n.x * n.y)
-		var lit := PackedByteArray()
-		lit.resize(n.x * n.y)
-		for y in n.y:
-			for x in n.x:
-				var i := y * n.x + x
-				fog[i] = [0, 128, 255][d.fog_at(x, y)]
-				lit[i] = [0, 128, 255][d.light[i]]
-		var fi := Image.create_from_data(n.x, n.y, false, Image.FORMAT_L8, fog)
-		var li := Image.create_from_data(n.x, n.y, false, Image.FORMAT_L8, lit)
-		if _fog_tex == null or _fog_tex.get_size() != Vector2(n):
-			_fog_tex = ImageTexture.create_from_image(fi)
-			_light_tex = ImageTexture.create_from_image(li)
-		else:
-			_fog_tex.update(fi)
-			_light_tex.update(li)
-		var m: ShaderMaterial = _shade.material
-		m.set_shader_parameter("fog", _fog_tex)
-		m.set_shader_parameter("light", _light_tex)
-		m.set_shader_parameter("squares", Vector2(n))
-	_shade.draw_texture_rect(_fog_tex, Rect2(d.area.position, Vector2(d.fog_size) * Acts.FOG), false)
+	if _sight_tex != null:
+		_shade.draw_texture_rect(_sight_tex, Rect2(d.area.position, Vector2(d.fog_size) * Acts.FOG), false)
+
+
+## The squares in sight, seen and how lit, straight into the shader's
+## textures (one byte a square).
+func _fog_textures(d: Duel) -> void:
+	var n := d.fog_size
+	var imgs := [d.sight, d.memory[d.room_i], d.light].map(
+		func(b): return Image.create_from_data(n.x, n.y, false, Image.FORMAT_L8, b))
+	if _sight_tex == null or _sight_tex.get_size() != Vector2(n):
+		_sight_tex = ImageTexture.create_from_image(imgs[0])
+		_seen_tex = ImageTexture.create_from_image(imgs[1])
+		_light_tex = ImageTexture.create_from_image(imgs[2])
+	else:
+		_sight_tex.update(imgs[0])
+		_seen_tex.update(imgs[1])
+		_light_tex.update(imgs[2])
+	var m: ShaderMaterial = _shade.material
+	m.set_shader_parameter("sight", _sight_tex)
+	m.set_shader_parameter("seen", _seen_tex)
+	m.set_shader_parameter("light", _light_tex)
+	m.set_shader_parameter("squares", Vector2(n))
 
 
 ## The walls: a line along every edge between wall and floor, as seen as
@@ -192,7 +215,7 @@ func _walls(d: Duel) -> void:
 	for e in _edges:
 		var c := _wall_col(d.fog_at(e[1], e[2]))
 		if c.a > 0.0:
-			draw_rect(e[0], c)
+			_wall_lines.draw_rect(e[0], c)
 
 
 func _wall_col(fog: int) -> Color:
