@@ -221,13 +221,19 @@ static func node_of(n: String, it: Dictionary, h: String) -> String:
 	return n if int(it["hands"]) == 2 else n + ("_r" if h == "right" else "_l")
 
 
-## Hand h's menu: {thing: what it does}, the item's own, then TWO HANDS or
-## ONE HAND, TRANSFORM and SWAP (in the hand whose slot it is).
+## Hand h's menu: {thing: what it does}, BACKSTAB first when there's one
+## to do (with a melee LIGHT), the item's own, then TWO HANDS or ONE HAND,
+## TRANSFORM and SWAP (in the hand whose slot it is).
 func options(h: String) -> Dictionary:
 	if not h in hands():
 		return {}
 	var it := item(h)
-	var out: Dictionary = (it["two"] if two_handed(h) and it.has("two") else it["does"]).duplicate()
+	var does: Dictionary = it["two"] if two_handed(h) and it.has("two") else it["does"]
+	var out := {}
+	var light: Dictionary = does.get("light", {})
+	if light.has("live") and backstab_target() != null:
+		out["backstab"] = {"backstab": light, "times": float(it.get("backstab", Acts.BACKSTAB["times"])), "st": light.get("st", 0)}
+	out.merge(does)
 	if it.has("two"):
 		var g := "one hand" if two_handed(h) else "two hands"
 		out[g] = {"change": g}
@@ -516,6 +522,24 @@ func shape(k: String, at: Vector2) -> Dictionary:
 			steps.append({"ph": "change"})
 		steps[steps.size() - 1]["change"] = [h, s["change"]]
 		a = _act(k, steps)
+	elif s.has("backstab"):
+		var v := backstab_target()
+		if v == null:
+			return {}
+		var l: Dictionary = s["backstab"]
+		var top := int(l["wind"]) + int(l["swing"])
+		var steps := []
+		for i in range(1, int(l["wind"]) + 1):
+			steps.append({"ph": "wind", "clip": l["clip"], "frame": i, "mirror": mirror})
+		steps.append({"ph": "act", "clip": l["clip"], "frame": top, "mirror": mirror,
+			"stab": roundi(int(l["dmg"]) * float(s["times"]))})
+		for i in int(Acts.BACKSTAB["hold"]):
+			steps.append({"ph": "rec", "clip": l["clip"], "frame": top, "mirror": mirror})
+		for i in range(top + 1, top + int(l["rec"]) + 1):
+			steps.append({"ph": "rec", "clip": l["clip"], "frame": i, "mirror": mirror})
+		steps[0]["face"] = (v.pos - hero.pos).angle()
+		a = _act(k, steps)
+		a["victim"] = v
 	elif s.has("reload"):
 		var steps := []
 		for i in range(1, int(s["reload"]) + 1):
@@ -569,8 +593,10 @@ func plan(k: String, at: Vector2) -> bool:
 	stamina -= cost(k)
 	if not k in ["move", "steer", "wait"] and not s.get("keeps guard", false):
 		guard = false
-	if not k in ["move", "steer", "wait"] and not (k.ends_with(":light") and foes.any(from_behind)):
-		hero.crouch = false
+	if not k in ["move", "steer", "wait"] and not s.has("live") and not s.has("backstab"):
+		hero.crouch = false  # (a melee attack or BACKSTAB keeps him crouching)
+	if a.has("victim"):
+		_hold(a["victim"], int(s["backstab"]["wind"]) + 1 + int(Acts.BACKSTAB["hold"]))
 	if casts_left(k) > 0:
 		casts[item_key(h) + ":" + k.split(":")[1]] = casts_left(k) - 1
 	if k == "flask":
@@ -752,6 +778,12 @@ func step() -> void:
 		if u.alive() and current(u).has("shoot"):
 			_shoot(String(current(u)["shoot"]), "", u)
 	var st_h := current(hero)
+	if st_h.has("stab") and hero.cur.has("victim") and (hero.cur["victim"] as Unit).alive():
+		var v: Unit = hero.cur["victim"]
+		_hurt(v, hero, int(st_h["stab"]))
+		if v.alive():
+			_hold(v, int(Acts.BACKSTAB["hold"]) + 1)
+			v.cur["b"] = -1  # (counted up at the end of this step)
 	if st_h.has("shoot"):
 		_shoot(String(st_h["shoot"]), String(st_h.get("unload", "")))
 	if st_h.has("reload"):
@@ -783,10 +815,8 @@ func step() -> void:
 				var through := roundi(int(st["dmg"]) * float(guarding(v).get("cut", 0.0)))
 				if through > 0:
 					_chip(v, through)
-			elif u == hero and String(u.cur.get("k", "")).ends_with(":light") and from_behind(v):
-				_back_attack(v, int(st["dmg"]))
 			else:
-				_hurt(v, u, int(st["dmg"]))
+				_hurt(v, u, roundi(int(st["dmg"]) * (hit_times(v) if u == hero else 1.0)))
 	for u in units:
 		if u.idle():
 			continue
@@ -1150,14 +1180,30 @@ func spots(u: Unit) -> bool:
 	return sees_body(u, hero)
 
 
-## BACK ATTACK: whether the hero is where one on enemy v would be (it
-## hasn't noticed him; he's close behind it).
+## FROM BEHIND: whether the hero is behind enemy v.
 func from_behind(v: Unit) -> bool:
-	if v.side != "enemy" or not v.alive() or v.aware or foe_data(v).get("no back attack", false):
-		return false
-	var to := hero.pos - v.pos
-	return to.length() <= float(Acts.BACK_ATTACK["reach"]) \
-		and rad_to_deg(absf(angle_difference(v.ang, to.angle()))) >= 180.0 - float(Acts.BACK_ATTACK["behind"])
+	return rad_to_deg(absf(angle_difference(v.ang, (hero.pos - v.pos).angle()))) >= 180.0 - float(Acts.FROM_BEHIND["behind"])
+
+
+## How much the hero's melee hit on v does: more FROM BEHIND, more again if
+## it hadn't noticed him.
+func hit_times(v: Unit) -> float:
+	if v.side != "enemy" or not from_behind(v):
+		return 1.0
+	return 1.0 + float(Acts.FROM_BEHIND["bonus"]) + (0.0 if v.aware else float(Acts.FROM_BEHIND["sneak"]))
+
+
+## BACKSTAB: the enemy the hero could do one on now (null = none): near,
+## humanoid, he's behind it and it hasn't noticed him.
+func backstab_target() -> Unit:
+	if hero == null:
+		return null
+	for v in foes:
+		var f := foe_data(v)
+		if v.alive() and not v.aware and f.get("humanoid", false) and not f.get("no backstab", false) \
+				and hero.pos.distance_to(v.pos) <= float(Acts.BACKSTAB["reach"]) and from_behind(v):
+			return v
+	return null
 
 
 ## Whether the hero can see enemy u now.
@@ -1418,25 +1464,12 @@ func _keep_apart() -> void:
 				return
 
 
-## The hero's LIGHT lands on v from behind: more damage, and both hold
-## still (his blade in it) for Acts.BACK_ATTACK's hold.
-func _back_attack(v: Unit, d: int) -> void:
-	var n := int(Acts.BACK_ATTACK["hold"])
-	var times := float(spec(String(hero.cur["k"])).get("back", Acts.BACK_ATTACK["times"]))
-	var b := int(hero.cur["b"])
-	var held: Dictionary = hero.cur["steps"][b].duplicate()
-	for key in ["live", "dmg", "fwd", "shoot", "face"]:
-		held.erase(key)
-	held["ph"] = "rec"
+## Enemy v held still (staggered) for n steps from now.
+func _hold(v: Unit, n: int) -> void:
+	var steps := []
 	for i in n:
-		hero.cur["steps"].insert(b + 1, held.duplicate())
-	_hurt(v, hero, roundi(d * times))
-	if v.alive():
-		var steps := []
-		for i in n + 1:
-			steps.append({"ph": "stagger"})
-		v.cur = _act("stagger", steps)
-		v.cur["b"] = -1  # (counted up at the end of this step)
+		steps.append({"ph": "stagger"})
+	v.cur = _act("stagger", steps)
 
 
 func _hurt(v: Unit, by: Unit, d: int) -> void:

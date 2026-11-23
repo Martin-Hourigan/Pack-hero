@@ -760,41 +760,63 @@ func _stealth() -> void:
 	d.hero.pos = Vector2(100, 100)
 	d.toggle_crouch()
 	check(not d.spots(e), "further back, standing: not")
-	# BACK ATTACK.
+	# FROM BEHIND: more; more again if it hadn't noticed him.
 	var quiet := {"left": ["staff", "bow"], "right": ["longsword", "claymore"]}
-	for t in [["longsword", 16.0, 3.0], ["dagger", 11.0, 5.0]]:
-		var kit := {"left": ["staff", "bow"], "right": [t[0], "claymore"]}
-		d = Duel.new(1, kit, m)
+	var ls := int(Acts.ITEMS["longsword"]["does"]["light"]["dmg"])
+	for t in [[false, 2.0, "crouching, unnoticed: the sneak bonus too"], [true, 1.5, "mid-fight, it busy: just from behind"]]:
+		d = Duel.new(1, quiet, m)
 		e = d.foes[0]
 		e.hp = 1000
-		d.hero.pos = e.pos - Vector2(t[1], 0)
-		d.toggle_crouch()
-		check(d.from_behind(e) and d.plan("right:light", e.pos) and d.hero.crouch, "close behind it, crouching: a LIGHT keeps you crouched (%s)" % t[0])
-		var dmg := int(Acts.ITEMS[t[0]]["does"]["light"]["dmg"])
+		d.hero.pos = e.pos - Vector2(16, 0)
+		if t[0]:
+			e.aware = true
+			_still_foe(e, 30)
+		else:
+			d.toggle_crouch()
+		d.plan("right:light", e.pos)
+		check(d.hero.crouch != t[0], "(a melee attack keeps him crouching)")
 		_until_free(d)
-		check(1000 - e.hp == roundi(dmg * t[2]), "a BACK ATTACK: %d times the damage (%s)" % [t[2], t[0]], str(1000 - e.hp))
-		check(not e.aware or e.hp < 1000, "(it lands before it notices)")
+		check(1000 - e.hp == roundi(ls * t[1]), "a LIGHT from behind, " + t[2], str(1000 - e.hp))
 	d = Duel.new(1, quiet, m)
 	e = d.foes[0]
 	e.hp = 1000
+	e.ang = PI
+	e.aware = true
+	_still_foe(e, 30)
 	d.hero.pos = e.pos - Vector2(16, 0)
 	d.plan("right:light", e.pos)
 	_until_free(d)
-	check(1000 - e.hp == int(Acts.ITEMS["longsword"]["does"]["light"]["dmg"]) and e.aware, "standing, it notices first: an ordinary hit", str(1000 - e.hp))
+	check(1000 - e.hp == ls, "from the front: no bonus", str(1000 - e.hp))
+	# BACKSTAB: in the menu only when it can be done.
+	for t in [["longsword", 3.0], ["dagger", 5.0]]:
+		d = Duel.new(1, {"left": ["staff", "bow"], "right": [t[0], "claymore"]}, m)
+		e = d.foes[0]
+		e.hp = 1000
+		d.hero.pos = e.pos - Vector2(30, 0)
+		d.toggle_crouch()
+		check(not d.options("right").has("backstab"), "too far: no BACKSTAB (%s)" % t[0])
+		d.hero.pos = e.pos - Vector2(14, 0)
+		check(d.options("right").keys()[0] == "backstab", "close behind: BACKSTAB, first in the menu (%s)" % t[0])
+		check(d.plan("right:backstab", d.hero.pos) and d.hero.crouch, "doing it, still crouching")
+		var stopped := 0
+		for i in 30:
+			d.step()
+			if String(e.cur.get("k", "")) == "stagger":
+				stopped += 1
+		var dmg := int(Acts.ITEMS[t[0]]["does"]["light"]["dmg"])
+		check(1000 - e.hp == roundi(dmg * t[1]), "a BACKSTAB: %d times the LIGHT (%s)" % [t[1], t[0]], str(1000 - e.hp))
+		check(stopped >= int(Acts.BACKSTAB["hold"]) + 2, "it's held from the start, and after", str(stopped))
 	d = Duel.new(1, quiet, m)
 	e = d.foes[0]
-	e.hp = 1000
-	d.hero.pos = e.pos - Vector2(16, 0)
-	d.toggle_crouch()
-	d.plan("right:light", e.pos)
-	var stopped := 0
-	for i in 20:
-		d.step()
-		if String(e.cur.get("k", "")) == "stagger":
-			stopped += 1
-	check(stopped >= int(Acts.BACK_ATTACK["hold"]), "a BACK ATTACK holds it still", str(stopped))
-	var k := d.add_foe("knight", d.hero.pos + Vector2(20, 0), 0.0)
-	check(not d.from_behind(k), "no BACK ATTACK on the knight")
+	d.hero.pos = e.pos + Vector2(14, 0)
+	check(not d.options("right").has("backstab"), "in front of it: no BACKSTAB")
+	e.aware = true
+	d.hero.pos = e.pos - Vector2(14, 0)
+	check(not d.options("right").has("backstab"), "it's noticed him: no BACKSTAB")
+	check(not d.options("left").has("backstab"), "not with a staff")
+	var k := d.add_foe("knight", d.hero.pos + Vector2(14, 0), 0.0)
+	e.pos = Vector2(250, 30)
+	check(not d.options("right").has("backstab"), "not on the knight")
 
 
 ## Whole fights, the hero pressing light attacks: they end.

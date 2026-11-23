@@ -499,20 +499,39 @@ BUILT:
   lower-right area patrol; the rest stand.
 - Sight: a wider cone, further, and a sense all round when you're near
   and standing (not crouching).
-- BACK ATTACK: judged when a melee LIGHT lands: the enemy hasn't noticed
-  you, you're within reach px and behind degrees of straight behind it.
-  More damage; both of you held still (his blade in it) for hold steps.
-  Started crouching close behind an unnoticing enemy, you stay crouched
-  (quieter). Not on the knight. The held pose is the light's last swing
-  frame: PLACEHOLDER art.
-- DAGGER: one-handed, quiet, fastest light; its BACK ATTACK does more.
+- (Replaced, same day, by FROM BEHIND and BACKSTAB below.)
+- DAGGER: one-handed, quiet, fastest light; its BACKSTAB does more.
   Its art is a short shortsword; its clips are the shortsword's, quicker.
   On the gear screen (now 6 across).
 PLACEHOLDER: AGGRO 160 -> 200, CONE 120 -> 180 degrees, NEAR_SENSE 24,
 YELL 160, CALM_WALK half, LOOK_STEPS 6, PATROL_WAIT 4; BACK_ATTACK reach
-16, behind 45 degrees, 3x damage (dagger 5x), hold 4. Dagger: noise 5;
+16, behind 45 degrees, 3x damage (dagger 5x), hold 4 (now BACKSTAB's). Dagger: noise 5;
 light wind 1 / swing 1 / rec 1, 12 dmg, 10 st, 2 px forward; heavy 2/2/2,
 24 dmg, 20 st, 2 px forward each swing step. Patrol routes.
+
+FROM BEHIND AND BACKSTAB (2026-11-23)
+DECIDED (Martin): special attacks appear when their conditions are met.
+A normal attack from behind gets a bonus, mid-fight too; if the enemy
+hadn't noticed you, the sneak bonus as well. Close enough behind an
+enemy, you can BACKSTAB: humanoids only; that's the one with the big
+damage.
+BUILT:
+- FROM BEHIND: any melee hit (LIGHT or HEAVY) landing within 45 degrees
+  of straight behind: +50%; it hadn't noticed you: +50% more (x2).
+  The knight too. Not shots.
+- BACKSTAB: first in a melee hand's menu while you're within reach of a
+  humanoid enemy, behind it, that hasn't noticed you; the hand's button
+  flickers. Once started it can't fail: the enemy's held from the start.
+  Wind (the LIGHT's), the stab (3x the LIGHT's damage; dagger 5x), both
+  held still, then the LIGHT's recovery. Its stamina is the LIGHT's.
+  Gone from the menu: back to the LIGHT.
+- "humanoid" on the soldier, spearman, archer and knight; the knight
+  can't be backstabbed (Claude's default, Martin didn't say).
+- A melee attack (or BACKSTAB) started crouching keeps you crouched
+  (Claude's call: otherwise standing up within NEAR_SENSE always gets
+  you noticed, so the sneak bonus could never land in melee).
+PLACEHOLDER: +50% / +50%, 45 degrees, BACKSTAB reach 16 / 3x / hold 4,
+its art (the LIGHT's swing, held on its last frame).
 
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).

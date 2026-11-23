@@ -190,6 +190,8 @@ func _process(dt: float) -> void:
 	if not touch:
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if mode == "duel" and picking else Input.MOUSE_MODE_VISIBLE
 	if mode == "duel":
+		if tool.ends_with(":backstab") and duel.spec(tool).is_empty():
+			tool = tool.split(":")[0] + ":light"  # no BACKSTAB now
 		if ":" in tool and duel.spec(tool).is_empty():
 			tool = "move"  # its item has been put away or changed
 		duel.fx(dt)

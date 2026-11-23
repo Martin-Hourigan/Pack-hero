@@ -126,11 +126,17 @@ const CALM_WALK := 0.5
 const LOOK_STEPS := 6
 ## Steps an enemy waits at each point of its patrol. PLACEHOLDER.
 const PATROL_WAIT := 4
-## BACK ATTACK: a melee LIGHT landing on an enemy that hasn't noticed him,
-## from within `reach` px and `behind` degrees of straight behind it, does
-## `times` the damage (or the attack's "back") and holds both for `hold`
-## steps. Started crouching, he stays crouched. PLACEHOLDER.
-const BACK_ATTACK := {"reach": 16.0, "behind": 45.0, "times": 3.0, "hold": 4}
+## FROM BEHIND: the hero's melee hit landing within `behind` degrees of
+## straight behind an enemy does `bonus` more; if it hadn't noticed him,
+## `sneak` more on top. PLACEHOLDER.
+const FROM_BEHIND := {"behind": 45.0, "bonus": 0.5, "sneak": 0.5}
+## BACKSTAB: in a melee hand's menu while he's within `reach` px of a
+## humanoid enemy, FROM BEHIND, that hasn't noticed him. It can't be
+## stopped once started: the enemy's held from the start; the stab does
+## `times` the item's LIGHT damage (or the item's "backstab"), then both
+## hold still for `hold` steps. Started crouching, he stays crouched.
+## PLACEHOLDER.
+const BACKSTAB := {"reach": 16.0, "times": 3.0, "hold": 4}
 ## From in a shrub you see only this far (px). PLACEHOLDER.
 const SHRUB_SIGHT := 40.0
 ## Standing, you see over shrubs and low walls, but someone crouching (or
@@ -255,8 +261,8 @@ const CHANGE := {"swap": 1, "two hands": 1, "one hand": 1, "transform": 1}
 ## An attack: clip, wind, swing, rec (steps), live (swing steps that hit),
 ## dmg, st (stamina), lunge (px a swing step). shot: SHOTS entry, fired on
 ## the first swing step. casts: a limit (spells). loaded: needs loading
-## first (a crossbow). back: a BACK ATTACK's damage times (not
-## Acts.BACK_ATTACK's). reload: steps. block: arc (degrees in front where
+## first (a crossbow). reload: steps. An item's backstab: its BACKSTAB's
+## damage times (not Acts.BACKSTAB's). block: arc (degrees in front where
 ## hits are stopped); cut: how much of a stopped hit still hurts. Anything
 ## but walking or waiting drops GUARD, unless "keeps guard" (and then,
 ## with GUARD up, it doesn't lunge).
@@ -332,9 +338,9 @@ const ITEMS := {
 		"light": {"clip": "ss_light", "wind": 1, "swing": 2, "rec": 1, "live": [1, 2], "lunge": 2.0, "dmg": 18, "st": 12},
 		"heavy": {"clip": "ss_heavy", "wind": 2, "swing": 3, "rec": 2, "live": [1, 2, 3], "dmg": 35, "st": 25},
 	}},
-	# Quiet and quick; its BACK ATTACK does the most.
-	"dagger": {"name": "DAGGER", "hands": 1, "noise": 5, "key": "dg", "nodes": ["dg_hilt", "dg_blade"], "blade": "dg_blade", "does": {
-		"light": {"clip": "dg_light", "wind": 1, "swing": 1, "rec": 1, "live": [1], "lunge": 2.0, "dmg": 12, "st": 10, "back": 5.0},
+	# Quiet and quick; its BACKSTAB does the most.
+	"dagger": {"name": "DAGGER", "hands": 1, "noise": 5, "key": "dg", "nodes": ["dg_hilt", "dg_blade"], "blade": "dg_blade", "backstab": 5.0, "does": {
+		"light": {"clip": "dg_light", "wind": 1, "swing": 1, "rec": 1, "live": [1], "lunge": 2.0, "dmg": 12, "st": 10},
 		"heavy": {"clip": "dg_heavy", "wind": 2, "swing": 2, "rec": 2, "live": [1, 2], "lunge": 2.0, "dmg": 24, "st": 20},
 	}},
 }
@@ -368,7 +374,7 @@ const BURNS := {
 ## low: true for one that's always low, as if crouching (a dog, a rat).
 ## An attack's `after`: steps it waits once it's done.
 const KNIGHT := {
-	"ai": "knight", "attacks": ["sweep", "backhand", "overhead"], "no back attack": true,
+	"ai": "knight", "attacks": ["sweep", "backhand", "overhead"], "humanoid": true, "no backstab": true,
 	"walk": 3.0,  # px a step
 	"reach": 40.0,  # px from him to the hero: he attacks from here
 	"turn": 25.0,  # degrees he turns at most in a step
@@ -384,15 +390,15 @@ const KNIGHT := {
 	"overhead": {"clip": "overhead", "wind": 4, "swing": 5, "rec": 3, "live": [4, 5], "lunge": 2.0, "dmg": 80},
 }
 ## A short sword: quick, weak, staggers easily.
-const SOLDIER := {"ai": "melee", "attacks": ["slash"], "walk": 4.0, "reach": 16.0, "turn": 40.0,
+const SOLDIER := {"ai": "melee", "humanoid": true, "attacks": ["slash"], "walk": 4.0, "reach": 16.0, "turn": 40.0,
 	"poise": 30, "stagger": 3, "calm": 6,
 	"slash": {"clip": "slash", "wind": 2, "swing": 3, "rec": 2, "live": [1, 2, 3], "dmg": 20, "after": 1}}
 ## Keeps a bit of distance and thrusts: a longer reach than a sword.
-const SPEARMAN := {"ai": "melee", "attacks": ["thrust"], "walk": 3.5, "reach": 26.0, "near": 18.0, "turn": 30.0,
+const SPEARMAN := {"ai": "melee", "humanoid": true, "attacks": ["thrust"], "walk": 3.5, "reach": 26.0, "near": 18.0, "turn": 30.0,
 	"poise": 40, "stagger": 3, "calm": 6,
 	"thrust": {"clip": "thrust", "wind": 2, "swing": 2, "rec": 2, "live": [1, 2], "lunge": 2.0, "dmg": 25, "after": 1}}
 ## Keeps away and shoots arrows (Acts.SHOTS).
-const ARCHER := {"ai": "archer", "attacks": ["shoot"], "walk": 3.5, "near": 50.0, "far": 140.0, "turn": 30.0,
+const ARCHER := {"ai": "archer", "humanoid": true, "attacks": ["shoot"], "walk": 3.5, "near": 50.0, "far": 140.0, "turn": 30.0,
 	"poise": 20, "stagger": 3, "calm": 6,
 	"shoot": {"clip": "shoot", "wind": 4, "swing": 1, "rec": 1, "shot": "arrow", "after": 3}}
 const FOES := {"knight": KNIGHT, "soldier": SOLDIER, "spearman": SPEARMAN, "archer": ARCHER}

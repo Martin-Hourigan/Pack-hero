@@ -147,6 +147,8 @@ func _tools(d: Duel) -> void:
 		var hand := id.trim_prefix("hand:") if id.begins_with("hand:") else ""
 		var picked: bool = main.tool == id or (hand != "" and main.hand_of(main.tool) == hand)
 		var col: Color = Pal.INK if picked or main.held == id or (hand != "" and main.menu == hand) else Pal.DIM
+		if hand != "" and d.options(hand).has("backstab") and fmod(main.clock, 0.6) < 0.3:
+			col = Pal.INK  # a BACKSTAB to do: it flickers
 		if (id == "roll" and d.cost(id) > d.stamina) or (id == "flask" and d.flasks <= 0):
 			col = Pal.DIM.darkened(0.45)
 		var r: Rect2 = b[0]
