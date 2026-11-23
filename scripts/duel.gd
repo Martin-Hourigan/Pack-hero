@@ -522,6 +522,8 @@ func shape(k: String, at: Vector2) -> Dictionary:
 		for st in steps:
 			st.erase("track")
 			st["mirror"] = mirror
+			if guard and s.get("keeps guard", false):
+				st.erase("fwd")
 			if st.has("shoot") and s.get("loaded", false):
 				st["unload"] = slot(h)
 		steps[0]["face"] = aim

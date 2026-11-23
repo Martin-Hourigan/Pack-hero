@@ -217,6 +217,23 @@ func _hero() -> void:
 	d.toggle_guard()
 	d.plan("right:heavy", d.knight.pos)
 	check(not d.guard, "a pike's HEAVY drops GUARD")
+	# A LIGHT steps forward a little; a pike's, with GUARD up, doesn't.
+	d = _armed("kite shield", "longsword")
+	var p0 := d.hero.pos
+	d.plan("right:light", d.knight.pos)
+	_until_free(d)
+	check(is_equal_approx(d.hero.pos.distance_to(p0), 4.0), "a longsword LIGHT steps 4 px forward", str(d.hero.pos - p0))
+	d = _armed("kite shield", "pike")
+	p0 = d.hero.pos
+	d.plan("right:light", d.knight.pos)
+	_until_free(d)
+	check(is_equal_approx(d.hero.pos.distance_to(p0), 4.0), "a pike LIGHT, no GUARD: 4 px forward", str(d.hero.pos - p0))
+	d = _armed("kite shield", "pike")
+	p0 = d.hero.pos
+	d.toggle_guard()
+	d.plan("right:light", d.knight.pos)
+	_until_free(d)
+	check(d.hero.pos == p0, "a pike LIGHT with GUARD up: stays put", str(d.hero.pos - p0))
 	d = _armed("kite shield", "pike")
 	d.hero.pos = d.knight.pos + Vector2(-30, 0)
 	d.hero.ang = 0.0

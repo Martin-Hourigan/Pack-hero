@@ -466,6 +466,15 @@ rec 1 -> 3; heavy shot wind 7 -> 9, rec 1 -> 3; greatbow arrow wind
 7 -> 9, rec 1 -> 3; heavy shot wind 9 -> 11, rec 2 -> 4. Crossbow and
 staff unchanged.
 
+LIGHT ATTACKS STEP FORWARD (2026-11-23)
+DECIDED (Martin): the melee LIGHT attacks carry you forward a little, as
+in Dark Souls, not slashing on the spot. The pike's LIGHT with the
+shield's GUARD up stays put; without GUARD it steps forward too.
+BUILT: on the swing steps only (like the heavies).
+PLACEHOLDER ("fine for now"): about 4 px in all: longsword 1 px a swing
+step (4), claymore 1 (5), quarterstaff / greatspear / pike / shortsword
+2 (4).
+
 OPEN
 - Martin played v0.1 on his phone (2026-11-20).
 
