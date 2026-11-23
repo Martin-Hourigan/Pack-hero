@@ -81,7 +81,7 @@ var step_t := STEP_T  # s the step being shown takes on screen
 ## MOVE's way of walking (tap MOVE again to choose): "to" (tap a spot:
 ## walk there), "hold" (held down: walk straight toward it, a step at a
 ## time, until let go), "step" (one step toward where you tap).
-var walk := "to"
+var walk := "hold"
 const WALKS := [["to", "WALK TO"], ["hold", "HOLD"], ["step", "1 STEP"]]
 var menu := ""  # the hand whose menu is open ("left", "right")
 var picking := false  # LOCK tapped: tap an enemy to lock on

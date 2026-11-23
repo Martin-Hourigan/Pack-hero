@@ -368,7 +368,7 @@ another with no gap (Martin: 0.3 with a pause was jarring, too stilted); an
 enemy starting an attack stops HOLD until you press again; on the phone
 1 STEP is aim then tap again, like the other tools, and HOLD steers
 where your finger is (dragging steers rather than moving the view);
-WALK TO is the default.
+HOLD is the default (Martin, 2026-11-24; was WALK TO).
 
 THE VIEW (2026-11-22)
 Tried: the view leaning toward the mouse. Martin: "i actually hate the
