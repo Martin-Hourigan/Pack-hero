@@ -129,7 +129,7 @@ const PATROL_WAIT := 4
 ## FROM BEHIND: the hero's melee hit landing within `behind` degrees of
 ## straight behind an enemy does `bonus` more; if it hadn't noticed him,
 ## `sneak` more on top. PLACEHOLDER.
-const FROM_BEHIND := {"behind": 45.0, "bonus": 0.5, "sneak": 0.5}
+const FROM_BEHIND := {"behind": 45.0, "bonus": 0.25, "sneak": 0.25}
 ## BACKSTAB: in a melee hand's menu while he's within `reach` px of a
 ## humanoid enemy, FROM BEHIND, that hasn't noticed him. It can't be
 ## stopped once started: the enemy's held from the start; the stab does

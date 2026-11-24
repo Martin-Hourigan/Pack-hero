@@ -763,7 +763,7 @@ func _stealth() -> void:
 	# FROM BEHIND: more; more again if it hadn't noticed him.
 	var quiet := {"left": ["staff", "bow"], "right": ["longsword", "claymore"]}
 	var ls := int(Acts.ITEMS["longsword"]["does"]["light"]["dmg"])
-	for t in [[false, 2.0, "crouching, unnoticed: the sneak bonus too"], [true, 1.5, "mid-fight, it busy: just from behind"]]:
+	for t in [[false, 1.5, "crouching, unnoticed: the sneak bonus too"], [true, 1.25, "mid-fight, it busy: just from behind"]]:
 		d = Duel.new(1, quiet, m)
 		e = d.foes[0]
 		e.hp = 1000

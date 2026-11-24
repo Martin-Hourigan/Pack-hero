@@ -517,7 +517,7 @@ enemy, you can BACKSTAB: humanoids only; that's the one with the big
 damage.
 BUILT:
 - FROM BEHIND: any melee hit (LIGHT or HEAVY) landing within 45 degrees
-  of straight behind: +50%; it hadn't noticed you: +50% more (x2).
+  of straight behind: +25%; it hadn't noticed you: +25% more (x1.5). (Martin, 2026-11-24; was +50% each.)
   The knight too. Not shots.
 - BACKSTAB: first in a melee hand's menu while you're within reach of a
   humanoid enemy, behind it, that hasn't noticed you; the hand's button
