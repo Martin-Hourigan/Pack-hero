@@ -522,7 +522,7 @@ BUILT:
 - BACKSTAB: first in a melee hand's menu while you're within reach of a
   humanoid enemy, behind it, that hasn't noticed you; the hand's button
   flickers. Once started it can't fail: the enemy's held from the start.
-  Wind (the LIGHT's), the stab (3x the LIGHT's damage; dagger 5x), both
+  Wind (the LIGHT's), the stab (2x the LIGHT's damage; the dagger adds 1x: 3x; Martin 2026-11-24, was 3x and 5x), both
   held still, then the LIGHT's recovery. Its stamina is the LIGHT's.
   Gone from the menu: back to the LIGHT.
 - "humanoid" on the soldier, spearman, archer and knight; the knight

@@ -133,10 +133,10 @@ const FROM_BEHIND := {"behind": 45.0, "bonus": 0.25, "sneak": 0.25}
 ## BACKSTAB: in a melee hand's menu while he's within `reach` px of a
 ## humanoid enemy, FROM BEHIND, that hasn't noticed him. It can't be
 ## stopped once started: the enemy's held from the start; the stab does
-## `times` the item's LIGHT damage (or the item's "backstab"), then both
+## `times` the item's LIGHT damage (plus the item's "backstab"), then both
 ## hold still for `hold` steps. Started crouching, he stays crouched.
 ## PLACEHOLDER.
-const BACKSTAB := {"reach": 16.0, "times": 3.0, "hold": 4}
+const BACKSTAB := {"reach": 16.0, "times": 2.0, "hold": 4}
 ## From in a shrub you see only this far (px). PLACEHOLDER.
 const SHRUB_SIGHT := 40.0
 ## Standing, you see over shrubs and low walls, but someone crouching (or
@@ -261,8 +261,8 @@ const CHANGE := {"swap": 1, "two hands": 1, "one hand": 1, "transform": 1}
 ## An attack: clip, wind, swing, rec (steps), live (swing steps that hit),
 ## dmg, st (stamina), lunge (px a swing step). shot: SHOTS entry, fired on
 ## the first swing step. casts: a limit (spells). loaded: needs loading
-## first (a crossbow). reload: steps. An item's backstab: its BACKSTAB's
-## damage times (not Acts.BACKSTAB's). block: arc (degrees in front where
+## first (a crossbow). reload: steps. An item's backstab: added to its BACKSTAB's
+## damage times (Acts.BACKSTAB's). block: arc (degrees in front where
 ## hits are stopped); cut: how much of a stopped hit still hurts. Anything
 ## but walking or waiting drops GUARD, unless "keeps guard" (and then,
 ## with GUARD up, it doesn't lunge).
@@ -339,7 +339,7 @@ const ITEMS := {
 		"heavy": {"clip": "ss_heavy", "wind": 2, "swing": 3, "rec": 2, "live": [1, 2, 3], "dmg": 35, "st": 25},
 	}},
 	# Quiet and quick; its BACKSTAB does the most.
-	"dagger": {"name": "DAGGER", "hands": 1, "noise": 5, "key": "dg", "nodes": ["dg_hilt", "dg_blade"], "blade": "dg_blade", "backstab": 5.0, "does": {
+	"dagger": {"name": "DAGGER", "hands": 1, "noise": 5, "key": "dg", "nodes": ["dg_hilt", "dg_blade"], "blade": "dg_blade", "backstab": 1.0, "does": {
 		"light": {"clip": "dg_light", "wind": 1, "swing": 1, "rec": 1, "live": [1], "lunge": 2.0, "dmg": 12, "st": 10},
 		"heavy": {"clip": "dg_heavy", "wind": 2, "swing": 2, "rec": 2, "live": [1, 2], "lunge": 2.0, "dmg": 24, "st": 20},
 	}},

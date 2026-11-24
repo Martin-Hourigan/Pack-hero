@@ -788,7 +788,7 @@ func _stealth() -> void:
 	_until_free(d)
 	check(1000 - e.hp == ls, "from the front: no bonus", str(1000 - e.hp))
 	# BACKSTAB: in the menu only when it can be done.
-	for t in [["longsword", 3.0], ["dagger", 5.0]]:
+	for t in [["longsword", 2.0], ["dagger", 3.0]]:
 		d = Duel.new(1, {"left": ["staff", "bow"], "right": [t[0], "claymore"]}, m)
 		e = d.foes[0]
 		e.hp = 1000

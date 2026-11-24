@@ -232,7 +232,7 @@ func options(h: String) -> Dictionary:
 	var out := {}
 	var light: Dictionary = does.get("light", {})
 	if light.has("live") and backstab_target() != null:
-		out["backstab"] = {"backstab": light, "times": float(it.get("backstab", Acts.BACKSTAB["times"])), "st": light.get("st", 0)}
+		out["backstab"] = {"backstab": light, "times": float(Acts.BACKSTAB["times"]) + float(it.get("backstab", 0.0)), "st": light.get("st", 0)}
 	out.merge(does)
 	if it.has("two"):
 		var g := "one hand" if two_handed(h) else "two hands"
